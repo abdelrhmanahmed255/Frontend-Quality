@@ -5,7 +5,7 @@ metadata:
   version: 1.0.0
   category: frontend-quality
   locale: en
-  tags: [frontend, responsive-ui, accessibility, clean-code, audit, code-quality]
+  tags: [frontend, responsive-ui, accessibility, clean-code, audit, code-quality, unused-imports, dead-code]
 ---
 
 # Frontend Quality Auditor
@@ -27,6 +27,27 @@ Connect findings to concrete evidence (DOM elements, styles, source files, line 
 - The user requests a **project cleanup** (removing unused files, dead code, unused dependencies, or bloated assets).
 - The user wants to prepare a frontend for production, refactoring, code review, or client delivery.
 - The user asks to **"audit and fix safe issues"** in their project.
+
+---
+
+## Supported Frameworks
+
+The auditor automatically detects and supports:
+- Next.js (App Router & Pages Router)
+- React (Vite, CRA)
+- Remix
+- Static HTML/CSS
+- Tailwind CSS detection
+- TypeScript detection
+
+---
+
+## CLI Usage
+
+The CLI provides three primary commands:
+- `audit`: Runs a full frontend quality audit and generates a report.
+- `suggest`: Suggests improvements without making any changes to the code.
+- `fix --safe`: Automatically applies safe fixes like removing unused imports or dead code.
 
 ---
 
@@ -112,6 +133,13 @@ When instructed to fix, adhere strictly to the **Safe Fixing Model**:
 - **Review Required (Prompt User):** Removing unused dependencies, deleting suspected unused files, or refactoring CSS layouts.
 - **Never Touch:** Never alter authentication, database queries, environment variables, or encryption keys.
 
+## Output Format
+
+The auditor supports three report formats:
+- **Terminal:** Standard output with colored tables and prioritized lists for immediate CLI feedback.
+- **Markdown File:** A detailed `.md` report containing executive summaries, quick wins, evidence links, and severity breakdowns. Suitable for sharing with the team or attaching to issues.
+- **JSON:** A machine-readable `.json` file containing structured findings, line numbers, and severity data for integration with CI/CD pipelines or custom dashboards.
+
 ---
 
 ## Detailed Rules References
@@ -135,3 +163,6 @@ Before evaluating specific categories, read the corresponding rules reference:
 - [ ] Dependencies categorized as confirmed unused vs potentially indirect.
 - [ ] All code modifications limited to safe, non-breaking operations.
 - [ ] Unified quality report contains executive summary, quick wins, evidence, and prioritized fixes.
+- [ ] Unused imports identified and safe-to-remove ones stripped.
+- [ ] Config file loaded and custom thresholds applied when present.
+- [ ] Report generated in requested format(s) with evidence links.
