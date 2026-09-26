@@ -12,9 +12,26 @@ import {
 import { generateApprovalGuidance } from "../src/fixes/approval-required.mjs";
 
 const args = process.argv.slice(2);
-const command = args[0] || "audit";
+const COMMANDS = ["audit", "suggest", "fix"];
 
-if (["--help", "-h", "help"].includes(command)) {
+// Returns the value of a --name=value option. Only the first "=" separates the name from the
+// value, so values like --url=http://localhost:3000/?tab=a stay intact.
+function optionValue(name) {
+  const prefix = `--${name}=`;
+  const arg = args.find(a => a.startsWith(prefix));
+  return arg ? arg.slice(prefix.length) : null;
+}
+
+function fail(message) {
+  console.error(message);
+  process.exit(1);
+}
+
+// The command is optional: `frontend-auditor ./my-app` audits ./my-app.
+const positional = args.filter(a => !a.startsWith("-"));
+const command = COMMANDS.includes(positional[0]) ? positional.shift() : "audit";
+
+if (args.includes("--help") || args.includes("-h") || positional[0] === "help") {
   console.log(`
 Frontend Quality Auditor (CLI)
 
@@ -26,28 +43,34 @@ Usage:
 Options:
   --format=markdown|json|terminal         Output format (default: terminal + markdown file)
   --output=<path>                         Custom path for generated report
+  --verbose                               Show every finding in the terminal report
+  --url=<url>                             Also run the Playwright browser audit against a running app
+  --strict[=<score>]                      Exit with code 1 if the health score is below <score> (default 100)
+  --dry-run                               With fix: show what would change without writing files
   --help, -h                              Show this help message
 `);
   process.exit(0);
 }
 
-const targetArg = args.find(a => !a.startsWith("-") && a !== command);
+const targetArg = positional[0];
 const targetDir = resolve(process.cwd(), targetArg || ".");
+if (!existsSync(targetDir)) {
+  fail(`Unknown command or directory '${targetArg}'. Run 'frontend-auditor --help' for usage.`);
+}
 
-const formatArg = args.find(a => a.startsWith("--format="));
-const format = formatArg ? formatArg.split("=")[1] : null;
-
-const outputArg = args.find(a => a.startsWith("--output="));
-const output = outputArg ? outputArg.split("=")[1] : null;
+const format = optionValue("format");
+const output = optionValue("output");
 
 const isVerbose = args.includes("--verbose");
 const isDryRun = args.includes("--dry-run");
 
-    const strictArg = args.find(a => a.startsWith("--strict="));
-const strictMode = args.includes("--strict") ? 100 : strictArg ? parseInt(strictArg.split("=")[1], 10) : null;
+const strictValue = optionValue("strict");
+const strictMode = args.includes("--strict") ? 100 : strictValue !== null ? Number(strictValue) : null;
+if (strictMode !== null && !(strictMode >= 0 && strictMode <= 100)) {
+  fail(`Invalid --strict value '${strictValue}'. Use a health score between 0 and 100.`);
+}
 
-const urlArg = args.find(a => a.startsWith("--url="));
-const url = urlArg ? urlArg.split("=")[1] : null;
+const url = optionValue("url");
 
 async function main() {
   try {
