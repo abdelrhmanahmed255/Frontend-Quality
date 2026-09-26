@@ -49,7 +49,7 @@ export function blankStringsAndComments(code) {
       let quote = c;
       i++;
       while (i < code.length) {
-        if (code[i] === '\\') {
+        if (code[i] === '\\' && code[i + 1] !== '\n') {
           i += 2; // skip escaped char
           continue;
         }
@@ -58,11 +58,15 @@ export function blankStringsAndComments(code) {
           break;
         }
         if (code[i] === '\n') {
+          // Quotes cannot span lines in JS. Stopping here keeps a stray apostrophe
+          // (e.g. JSX text like "Don't") from blanking out the code that follows.
+          if (quote !== '`') break;
           result += ' '.repeat(i - start) + '\n';
           start = i + 1;
         }
         i++;
       }
+      i = Math.min(i, code.length);
       result += ' '.repeat(i - start);
       continue;
     }
