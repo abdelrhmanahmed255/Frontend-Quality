@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { readdir, stat } from "node:fs/promises";
+import { readdir, stat, readFile } from "node:fs/promises";
 import { join, extname, relative } from "node:path";
 
 const ASSET_EXTENSIONS = new Set([
@@ -48,8 +48,38 @@ async function findAssets(dir, assetList = []) {
   return assetList;
 }
 
+// Files that can reference an asset by name: code, styles, markup, docs, and config/manifests.
+const REFERENCE_FILE_RE = /\.(jsx?|tsx?|mjs|cjs|vue|svelte|astro|css|scss|sass|less|html?|mdx?|json|webmanifest|ya?ml|xml)$/i;
+const SKIPPED_DIRS = new Set(["node_modules", ".git", ".next", "dist", "build", "coverage", "audit-reports"]);
+// Browsers and platforms request these by convention, so they are used without any reference.
+const CONVENTIONAL_ASSET_RE = /^(favicon|apple-touch-icon|android-chrome|mstile|safari-pinned-tab|browserconfig)/i;
+
+async function collectReferenceText(dir, chunks = []) {
+  let entries;
+  try {
+    entries = await readdir(dir, { withFileTypes: true });
+  } catch {
+    return chunks;
+  }
+  await Promise.all(entries.map(async (entry) => {
+    if (SKIPPED_DIRS.has(entry.name)) return;
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      await collectReferenceText(full, chunks);
+    } else if (REFERENCE_FILE_RE.test(entry.name) && !entry.name.includes("lock")) {
+      try {
+        chunks.push(await readFile(full, "utf-8"));
+      } catch {
+        // skip unreadable files
+      }
+    }
+  }));
+  return chunks;
+}
+
 /**
- * Inspects media assets for oversized files (>500KB) and uncompressed legacy formats.
+ * Inspects media assets for oversized files (>500KB), uncompressed legacy formats,
+ * and files that nothing in the project refers to.
  * @param {string} rootDir
  * @returns {Array<object>}
  */
@@ -92,6 +122,23 @@ export async function analyzeAssets(rootDir = process.cwd(), options = {}) {
         confidence: "Medium",
         problem: `Image is stored in uncompressed legacy format (${asset.ext}).`,
         recommendation: `Converting to modern WebP or AVIF format can yield 40%–80% size savings with equal visual quality.`,
+      });
+    }
+  }
+
+  // 3. Potentially unreferenced assets: the file name appears nowhere in the project's text files.
+  if (allAssets.length > 0) {
+    const referenceText = (await collectReferenceText(rootDir)).join("\n");
+    for (const asset of allAssets) {
+      if (CONVENTIONAL_ASSET_RE.test(asset.name) || referenceText.includes(asset.name)) continue;
+      findings.push({
+        type: "unreferenced-asset",
+        severity: "P3",
+        file: relative(rootDir, asset.file).replace(/\\/g, "/"),
+        sizeKB: asset.sizeKB,
+        confidence: "Medium",
+        problem: `Asset '${asset.name}' is not referenced by name in any source, style, markup, or config file.`,
+        recommendation: `Check for dynamic paths (e.g. \`/images/\${name}.png\`) or external usage, then delete the file if it is truly unused.`,
       });
     }
   }
