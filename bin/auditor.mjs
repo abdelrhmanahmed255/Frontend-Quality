@@ -27,6 +27,9 @@ Options:
   --format=markdown|json|terminal         Output format (default: terminal + markdown file)
   --output=<path>                         Custom path for generated report
   --help, -h                              Show this help message
+
+CI:
+  --fail-on=P0|P1|P2|P3                   Exit with code 1 if any finding is at this severity or worse
 `);
   process.exit(0);
 }
@@ -48,6 +51,14 @@ const strictMode = args.includes("--strict") ? 100 : strictArg ? parseInt(strict
 
 const urlArg = args.find(a => a.startsWith("--url="));
 const url = urlArg ? urlArg.split("=")[1] : null;
+
+const SEVERITIES = ["P0", "P1", "P2", "P3"];
+const failOnArg = args.find(a => a.startsWith("--fail-on="));
+const failOn = failOnArg ? failOnArg.split("=")[1].toUpperCase() : null;
+if (failOn !== null && !SEVERITIES.includes(failOn)) {
+  console.error(`Invalid --fail-on value '${failOn}'. Use one of: ${SEVERITIES.join(", ")}.`);
+  process.exit(1);
+}
 
 async function main() {
   try {
@@ -146,6 +157,19 @@ async function main() {
         process.exit(1);
       } else {
         console.log(`\n✅ CI/CD Check Passed: Health score (${healthScore}/100) meets strict threshold (${strictMode}).`);
+      }
+    }
+
+    // 5. Severity gate: fail when any finding is at or above the requested severity
+    if (failOn !== null) {
+      const maxRank = SEVERITIES.indexOf(failOn);
+      const blocking = auditResult.issues.filter(i => SEVERITIES.indexOf(i.severity) !== -1 && SEVERITIES.indexOf(i.severity) <= maxRank);
+      if (blocking.length > 0) {
+        const counts = SEVERITIES.slice(0, maxRank + 1)
+          .map(s => `${blocking.filter(i => i.severity === s).length} ${s}`)
+          .join(", ");
+        console.error(`\n❌ Severity gate failed: ${blocking.length} finding(s) at ${failOn} or worse (${counts}).`);
+        process.exit(1);
       }
     }
   } catch (err) {

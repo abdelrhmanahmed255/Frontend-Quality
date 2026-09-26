@@ -56,6 +56,9 @@ frontend-auditor suggest
 
 # Auto-fix safe issues (removes console.log, debugger, etc.)
 frontend-auditor fix --safe
+
+# Exit with code 1 when there is any P0 or P1 finding (useful as a CI gate)
+frontend-auditor audit --fail-on=P1
 ```
 
 The audit generates a markdown report at `audit-reports/FRONTEND_AUDIT_REPORT.md` with severity ratings, quick wins, and file-level evidence.
