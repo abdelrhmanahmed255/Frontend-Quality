@@ -12,10 +12,14 @@ export function generateMarkdownReport(auditResult) {
   md += `**Framework:** ${project.framework}  \n`;
   md += `**Audit Date:** ${dateStr}  \n\n`;
 
+  const healthScore = Math.max(0, 100 - ((summary.p0 * 20) + (summary.p1 * 10) + (summary.p2 * 5) + (summary.p3 * 2)));
+  const healthIcon = healthScore >= 80 ? "🟢" : healthScore >= 50 ? "🟡" : "🔴";
+
   md += `## 📊 Executive Summary\n\n`;
   md += `| Total Issues | 🔴 P0 Critical | 🟠 P1 High | 🟡 P2 Medium | ⚪ P3 Low |\n`;
   md += `|:---:|:---:|:---:|:---:|:---:|\n`;
   md += `| **${summary.total}** | **${summary.p0}** | **${summary.p1}** | **${summary.p2}** | **${summary.p3}** |\n\n`;
+  md += `**Health Score: ${healthScore}/100** ${healthIcon}\n\n`;
 
   if (quickWins && quickWins.length > 0) {
     md += `## ⚡ Quick Wins\n\n`;
@@ -32,7 +36,7 @@ export function generateMarkdownReport(auditResult) {
 
   md += `## 🔍 Detailed Findings\n\n`;
 
-  const categories = ["Code Quality", "Dependencies", "Assets", "Responsive", "Accessibility", "UX"];
+  const categories = ["Code Quality", "Imports", "Dependencies", "Assets", "Responsive", "Accessibility", "UX"];
   for (const cat of categories) {
     const catIssues = issues.filter(i => i.category === cat || i.type?.includes(cat.toLowerCase()));
     if (catIssues.length === 0) continue;

@@ -1,8 +1,12 @@
 /**
  * Formats audit findings for terminal output with ANSI colors.
  */
-export function printTerminalReport(auditResult) {
+export function printTerminalReport(auditResult, options = {}) {
   const { project, summary, quickWins, issues } = auditResult;
+  const isVerbose = options.verbose === true;
+
+  const healthScore = Math.max(0, 100 - ((summary.p0 * 20) + (summary.p1 * 10) + (summary.p2 * 5) + (summary.p3 * 2)));
+  const healthIcon = healthScore >= 80 ? "🟢" : healthScore >= 50 ? "🟡" : "🔴";
 
   console.log("\n=======================================================");
   console.log("       🩺 FRONTEND QUALITY AUDIT REPORT                ");
@@ -15,7 +19,8 @@ export function printTerminalReport(auditResult) {
   console.log(`  - 🔴 P0 (Critical): ${summary.p0}`);
   console.log(`  - 🟠 P1 (High):     ${summary.p1}`);
   console.log(`  - 🟡 P2 (Medium):   ${summary.p2}`);
-  console.log(`  - ⚪ P3 (Low):      ${summary.p3}\n`);
+  console.log(`  - ⚪ P3 (Low):      ${summary.p3}`);
+  console.log(`Health Score: ${healthScore}/100 ${healthIcon}\n`);
 
   if (quickWins && quickWins.length > 0) {
     console.log("⚡ QUICK WINS (High Impact, Safe to Resolve):");
@@ -29,7 +34,7 @@ export function printTerminalReport(auditResult) {
   console.log("DETAILED FINDINGS (Top Issues):");
   console.log("-------------------------------------------------------");
 
-  const topIssues = issues.slice(0, 15);
+  const topIssues = isVerbose ? issues : issues.slice(0, 15);
   for (const issue of topIssues) {
     const icon = issue.severity === "P0" ? "🔴" : issue.severity === "P1" ? "🟠" : issue.severity === "P2" ? "🟡" : "⚪";
     console.log(`\n${icon} [${issue.severity}] ${issue.problem}`);
@@ -37,7 +42,7 @@ export function printTerminalReport(auditResult) {
     if (issue.recommendation) console.log(`   Fix:      ${issue.recommendation}`);
   }
 
-  if (issues.length > 15) {
+  if (!isVerbose && issues.length > 15) {
     console.log(`\n... and ${issues.length - 15} more findings in full report.`);
   }
 
