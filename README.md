@@ -71,7 +71,7 @@ The audit generates a markdown report at `audit-reports/FRONTEND_AUDIT_REPORT.md
 | **Dependencies** | Packages in `package.json` that are never imported anywhere in your code |
 | **Assets** | Images over 500KB, old formats (PNG/JPG) that should be WebP/AVIF, unreferenced files |
 | **Responsive** | Horizontal scroll overflow, broken grids, elements bleeding outside viewport |
-| **Accessibility** | Missing `alt` tags, small touch targets (<44px), broken heading hierarchy |
+| **Accessibility** | Missing `alt` tags, unlabeled form fields, icon-only buttons and links without an accessible name, missing `<h1>` or skipped heading levels, missing `<html lang>`, small touch targets (<44px) |
 
 Every finding gets a severity level:
 - **P0** — breaks the page, fix now
