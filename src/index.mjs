@@ -53,6 +53,8 @@ export async function runFrontendAudit(rootDir = process.cwd(), options = {}) {
       type: "unused-import",
       file: relative(rootDir, i.file).replace(/\\/g, "/"),
       line: i.line,
+      identifier: i.identifier,
+      source: i.source,
       confidence: "High",
       problem: `Unused import '${i.identifier}' from '${i.source}'.`,
       recommendation: `Remove the unused import to keep the file clean and reduce bundle noise.`,
