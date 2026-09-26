@@ -23,13 +23,21 @@ export async function runFrontendAudit(rootDir = process.cwd(), options = {}) {
   const project = await detectProject(rootDir);
   const routes = await discoverRoutes(rootDir, project);
 
-  const [depIssues, assetIssues, codeIssues, sourceFiles, browserIssues] = await Promise.all([
-    analyzeDependencies(rootDir),
-    analyzeAssets(rootDir, { maxAssetSizeKB: config.rules.maxAssetSizeKB }),
-    analyzeCodeQuality(rootDir, { maxComponentLines: config.rules.maxComponentLines }),
-    findSourceFiles(rootDir),
-    options.url ? runBrowserAudit(options.url) : Promise.resolve([])
+  const { audit, rules } = config;
+  const skipped = Promise.resolve([]);
+
+  const [depIssues, assetIssues, rawCodeIssues, sourceFiles, browserIssues] = await Promise.all([
+    audit.dependencies && rules.checkUnusedDeps ? analyzeDependencies(rootDir) : skipped,
+    audit.assets ? analyzeAssets(rootDir, { maxAssetSizeKB: rules.maxAssetSizeKB }) : skipped,
+    audit.codeQuality ? analyzeCodeQuality(rootDir, { maxComponentLines: rules.maxComponentLines }) : skipped,
+    rules.checkUnusedImports ? findSourceFiles(rootDir) : skipped,
+    options.url ? runBrowserAudit(options.url, { viewports: config.viewports }) : skipped
   ]);
+
+  const codeIssues = rawCodeIssues.filter(i =>
+    !(i.type === "console-log" && !rules.disallowConsole) &&
+    !(i.type === "debugger" && !rules.disallowDebugger)
+  );
 
   const importIssuesResults = await Promise.all(
     sourceFiles.map(file => analyzeFileImports(file))

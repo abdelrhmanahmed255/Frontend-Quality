@@ -87,20 +87,37 @@ Drop a `config/auditor.config.json` in your project root to customize thresholds
 
 ```json
 {
+  "viewports": [375, 768, 1280],
+  "audit": {
+    "codeQuality": true,
+    "dependencies": true,
+    "assets": true
+  },
   "rules": {
     "maxAssetSizeKB": 500,
     "maxComponentLines": 300,
     "disallowConsole": true,
+    "disallowDebugger": true,
     "checkUnusedImports": true,
     "checkUnusedDeps": true
   },
-  "fixes": {
-    "safeOnly": true
+  "reporting": {
+    "outputDir": "./audit-reports"
   }
 }
 ```
 
-If no config file exists, it uses sensible defaults.
+| Option | Effect |
+|---|---|
+| `viewports` | Widths (px) tested by the browser audit (`--url`). Defaults to 320–1440. |
+| `audit.codeQuality` / `audit.dependencies` / `audit.assets` | Set to `false` to skip that whole category. |
+| `rules.maxAssetSizeKB` | Images above this size are reported as oversized. |
+| `rules.maxComponentLines` | Files longer than this are reported as monster components. |
+| `rules.disallowConsole` / `rules.disallowDebugger` | Set to `false` to stop reporting (and auto-fixing) `console.*` or `debugger`. |
+| `rules.checkUnusedImports` / `rules.checkUnusedDeps` | Set to `false` to skip unused import or unused dependency detection. |
+| `reporting.outputDir` | Where report files are written, relative to the audited project. |
+
+Any option you leave out keeps its default, and if no config file exists the defaults are used.
 
 ---
 

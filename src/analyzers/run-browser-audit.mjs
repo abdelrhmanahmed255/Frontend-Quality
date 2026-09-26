@@ -1,8 +1,22 @@
 import { chromium } from "playwright";
 import { DEFAULT_VIEWPORTS, inBrowserDomAudit } from "./browser-analyzer.mjs";
 
-export async function runBrowserAudit(url) {
+/**
+ * Turns the `viewports` config (a list of widths) into viewport definitions.
+ * Known widths reuse the built-in names and heights; anything else gets a generic height.
+ * @param {Array<number> | null | undefined} widths
+ */
+export function resolveViewports(widths) {
+  const valid = Array.isArray(widths) ? widths.filter(w => Number.isInteger(w) && w > 0) : [];
+  if (valid.length === 0) return DEFAULT_VIEWPORTS;
+  return valid.map(width =>
+    DEFAULT_VIEWPORTS.find(v => v.width === width) || { name: `${width}px`, width, height: width < 768 ? 812 : 900 }
+  );
+}
+
+export async function runBrowserAudit(url, options = {}) {
   if (!url) return [];
+  const viewports = resolveViewports(options.viewports);
 
   const findings = [];
   console.log(`\n🔍 Launching Headless Browser to test ${url}...`);
@@ -23,7 +37,7 @@ export async function runBrowserAudit(url) {
   }
 
   try {
-    for (const viewport of DEFAULT_VIEWPORTS) {
+    for (const viewport of viewports) {
       const context = await browser.newContext({
         viewport: { width: viewport.width, height: viewport.height },
         userAgent: viewport.width <= 768 ? "Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1" : undefined
