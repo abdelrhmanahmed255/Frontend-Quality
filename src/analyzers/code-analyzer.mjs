@@ -62,8 +62,9 @@ export function analyzeCodeQuality(rootDir = process.cwd()) {
       // Skip commented lines
       if (trimmed.startsWith("//") || trimmed.startsWith("/*") || trimmed.startsWith("*")) return;
 
-      // 2. console.log / console.debug detection
-      if (/\bconsole\.(log|debug|info)\(/.test(trimmed)) {
+      // 2. console.log / console.debug detection (skip CLI entrypoints and reporters)
+      const isCliOrReporter = relPath.startsWith("bin/") || relPath.includes("reporters/");
+      if (!isCliOrReporter && /\bconsole\.(log|debug|info)\(/.test(trimmed)) {
         findings.push({
           type: "console-log",
           severity: "P3",
@@ -76,7 +77,7 @@ export function analyzeCodeQuality(rootDir = process.cwd()) {
       }
 
       // 3. debugger statements
-      if (/\bdebugger;?/.test(trimmed)) {
+      if (/^\s*debugger\s*;?\s*$/.test(trimmed)) {
         findings.push({
           type: "debugger",
           severity: "P1",

@@ -9,6 +9,7 @@ yarn-error.log*
 
 # Audit evidence & reports
 audit-evidence/
+audit-reports/
 *.audit.json
 *.audit.html
 temp/
