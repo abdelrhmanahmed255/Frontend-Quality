@@ -6,6 +6,7 @@ import {
   runFrontendAudit,
   printTerminalReport,
   generateMarkdownReport,
+  formatJsonReport,
   applySafeFixes,
 } from "../src/index.mjs";
 import { generateApprovalGuidance } from "../src/fixes/approval-required.mjs";
@@ -33,39 +34,60 @@ Options:
 const targetArg = args.find(a => !a.startsWith("-") && a !== command);
 const targetDir = resolve(process.cwd(), targetArg || ".");
 
+const formatArg = args.find(a => a.startsWith("--format="));
+const format = formatArg ? formatArg.split("=")[1] : null;
+
+const outputArg = args.find(a => a.startsWith("--output="));
+const output = outputArg ? outputArg.split("=")[1] : null;
+
+const isVerbose = args.includes("--verbose");
+
 async function main() {
   try {
+    const startTime = performance.now();
     const isFixMode = command === "fix";
     const auditResult = await runFrontendAudit(targetDir);
 
-    // 1. Output Terminal Report
-    printTerminalReport(auditResult);
-
-    if (command === "suggest") {
-      const guidance = generateApprovalGuidance(auditResult);
-      if (guidance.length > 0) {
-        console.log("\n💡 Actionable Recommendations (Requires Manual Approval/Action):");
-        guidance.forEach(item => {
-          console.log(`\n  👉 ${item.action} [Risk: ${item.risk}]`);
-          console.log(`     ${item.explanation}`);
-          if (item.command) {
-            console.log(`     Run: ${item.command}`);
-          }
-          if (item.items) {
-            item.items.forEach(i => console.log(`      - ${i}`));
-          }
-        });
-      }
-    }
-
-    // 2. Generate Markdown Report file
     const reportsDir = resolve(targetDir, "audit-reports");
     if (!existsSync(reportsDir)) mkdirSync(reportsDir, { recursive: true });
 
-    const mdReport = generateMarkdownReport(auditResult);
-    const mdPath = resolve(reportsDir, "FRONTEND_AUDIT_REPORT.md");
-    writeFileSync(mdPath, mdReport, "utf-8");
-    console.log(`📄 Markdown report saved to: ${mdPath}`);
+    if (format === "json") {
+      const jsonReport = formatJsonReport(auditResult);
+      const jsonPath = output ? resolve(process.cwd(), output) : resolve(reportsDir, "FRONTEND_AUDIT_REPORT.json");
+      writeFileSync(jsonPath, jsonReport, "utf-8");
+      console.log(jsonReport);
+    } else if (format === "markdown") {
+      const mdReport = generateMarkdownReport(auditResult);
+      const mdPath = output ? resolve(process.cwd(), output) : resolve(reportsDir, "FRONTEND_AUDIT_REPORT.md");
+      writeFileSync(mdPath, mdReport, "utf-8");
+      console.log(`📄 Markdown report saved to: ${mdPath}`);
+    } else {
+      // 1. Output Terminal Report
+      printTerminalReport(auditResult, { verbose: isVerbose });
+
+      if (command === "suggest") {
+        const guidance = generateApprovalGuidance(auditResult);
+        if (guidance.length > 0) {
+          console.log("\n💡 Actionable Recommendations (Requires Manual Approval/Action):");
+          guidance.forEach(item => {
+            console.log(`\n  👉 ${item.action} [Risk: ${item.risk}]`);
+            console.log(`     ${item.explanation}`);
+            if (item.command) {
+              console.log(`     Run: ${item.command}`);
+            }
+            if (item.items) {
+              item.items.forEach(i => console.log(`      - ${i}`));
+            }
+          });
+        }
+      }
+
+      // 2. Generate Markdown Report file
+      const mdReport = generateMarkdownReport(auditResult);
+      const mdPath = output ? resolve(process.cwd(), output) : resolve(reportsDir, "FRONTEND_AUDIT_REPORT.md");
+      writeFileSync(mdPath, mdReport, "utf-8");
+      console.log(`📄 Markdown report saved to: ${mdPath}`);
+    }
 
     // 3. Handle Safe Fix Mode
     if (isFixMode) {
@@ -76,6 +98,9 @@ async function main() {
       console.log(`   ✓ Debugger breakpoints removed: ${fixStats.debuggersRemoved}`);
       console.log("\n✅ Safe fixes applied cleanly without breaking application logic.");
     }
+
+    const endTime = performance.now();
+    console.log(`\n⏱  Audit completed in ${((endTime - startTime) / 1000).toFixed(1)}s`);
   } catch (err) {
     console.error("Error during frontend audit:", err.message);
     process.exit(1);
