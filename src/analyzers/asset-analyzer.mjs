@@ -1,4 +1,5 @@
-import { existsSync, readdirSync, statSync } from "node:fs";
+import { existsSync } from "node:fs";
+import { readdir, stat } from "node:fs/promises";
 import { join, extname, relative } from "node:path";
 
 const ASSET_EXTENSIONS = new Set([
@@ -14,31 +15,35 @@ const ASSET_EXTENSIONS = new Set([
   ".woff2",
 ]);
 
-function findAssets(dir, assetList = []) {
+async function findAssets(dir, assetList = []) {
   if (!existsSync(dir)) return assetList;
-  const entries = readdirSync(dir);
-  for (const entry of entries) {
-    if (["node_modules", ".git", ".next", "dist", "build"].includes(entry)) continue;
-    const full = join(dir, entry);
-    try {
-      const s = statSync(full);
-      if (s.isDirectory()) {
-        findAssets(full, assetList);
-      } else {
-        const ext = extname(entry).toLowerCase();
-        if (ASSET_EXTENSIONS.has(ext)) {
-          assetList.push({
-            file: full,
-            name: entry,
-            ext,
-            sizeBytes: s.size,
-            sizeKB: Math.round(s.size / 1024),
-          });
+  try {
+    const entries = await readdir(dir);
+    await Promise.all(entries.map(async (entry) => {
+      if (["node_modules", ".git", ".next", "dist", "build"].includes(entry)) return;
+      const full = join(dir, entry);
+      try {
+        const s = await stat(full);
+        if (s.isDirectory()) {
+          await findAssets(full, assetList);
+        } else {
+          const ext = extname(entry).toLowerCase();
+          if (ASSET_EXTENSIONS.has(ext)) {
+            assetList.push({
+              file: full,
+              name: entry,
+              ext,
+              sizeBytes: s.size,
+              sizeKB: Math.round(s.size / 1024),
+            });
+          }
         }
+      } catch {
+        // skip
       }
-    } catch {
-      // skip
-    }
+    }));
+  } catch {
+    // skip
   }
   return assetList;
 }
@@ -48,7 +53,7 @@ function findAssets(dir, assetList = []) {
  * @param {string} rootDir
  * @returns {Array<object>}
  */
-export function analyzeAssets(rootDir = process.cwd(), options = {}) {
+export async function analyzeAssets(rootDir = process.cwd(), options = {}) {
   const maxKB = options.maxAssetSizeKB || 500;
   const assetDirs = [
     join(rootDir, "public"),
@@ -57,9 +62,7 @@ export function analyzeAssets(rootDir = process.cwd(), options = {}) {
   ].filter(existsSync);
 
   const allAssets = [];
-  for (const d of assetDirs) {
-    findAssets(d, allAssets);
-  }
+  await Promise.all(assetDirs.map(d => findAssets(d, allAssets)));
 
   const findings = [];
 

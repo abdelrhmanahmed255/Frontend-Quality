@@ -17,17 +17,23 @@ import { applySafeFixes } from "./fixes/safe-fixes.mjs";
  * @returns {object}
  */
 export async function runFrontendAudit(rootDir = process.cwd()) {
-  const config = loadConfig(rootDir);
-  const project = detectProject(rootDir);
-  const routes = discoverRoutes(rootDir, project);
-  const depIssues = analyzeDependencies(rootDir);
-  const assetIssues = analyzeAssets(rootDir, { maxAssetSizeKB: config.rules.maxAssetSizeKB });
-  const codeIssues = analyzeCodeQuality(rootDir, { maxComponentLines: config.rules.maxComponentLines });
+  const config = await loadConfig(rootDir);
+  const project = await detectProject(rootDir);
+  const routes = await discoverRoutes(rootDir, project);
 
-  const sourceFiles = findSourceFiles(rootDir);
+  const [depIssues, assetIssues, codeIssues, sourceFiles] = await Promise.all([
+    analyzeDependencies(rootDir),
+    analyzeAssets(rootDir, { maxAssetSizeKB: config.rules.maxAssetSizeKB }),
+    analyzeCodeQuality(rootDir, { maxComponentLines: config.rules.maxComponentLines }),
+    findSourceFiles(rootDir)
+  ]);
+
+  const importIssuesResults = await Promise.all(
+    sourceFiles.map(file => analyzeFileImports(file))
+  );
+  
   const importIssues = [];
-  for (const file of sourceFiles) {
-    const issues = analyzeFileImports(file);
+  for (const issues of importIssuesResults) {
     if (issues && issues.length > 0) {
       importIssues.push(...issues);
     }

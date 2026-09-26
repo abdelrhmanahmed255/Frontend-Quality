@@ -1,4 +1,5 @@
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync } from "node:fs";
+import { readdir, stat, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 const ALWAYS_RETAINED_DEPS = new Set([
@@ -30,30 +31,34 @@ const ALWAYS_RETAINED_DEPS = new Set([
   "astro"
 ]);
 
-function collectSourceImports(dir, imports = new Set()) {
+async function collectSourceImports(dir, imports = new Set()) {
   if (!existsSync(dir)) return imports;
-  const entries = readdirSync(dir);
-  for (const entry of entries) {
-    if (["node_modules", ".git", ".next", "dist", "build", "coverage"].includes(entry)) continue;
-    const full = join(dir, entry);
-    try {
-      const s = statSync(full);
-      if (s.isDirectory()) {
-        collectSourceImports(full, imports);
-      } else if (/\.(jsx?|tsx?|mjs|cjs|vue|svelte)$/.test(entry)) {
-        const text = readFileSync(full, "utf-8");
-        // match import ... from 'pkg' or require('pkg')
-        const importMatches = text.matchAll(/(?:from|require\(|import\()\s*['"]([^'"./][^'"]*)['"]/g);
-        for (const m of importMatches) {
-          const raw = m[1];
-          // Get root package name (e.g. @radix-ui/react-slot or lodash)
-          const pkgName = raw.startsWith("@") ? raw.split("/").slice(0, 2).join("/") : raw.split("/")[0];
-          imports.add(pkgName);
+  try {
+    const entries = await readdir(dir);
+    await Promise.all(entries.map(async (entry) => {
+      if (["node_modules", ".git", ".next", "dist", "build", "coverage"].includes(entry)) return;
+      const full = join(dir, entry);
+      try {
+        const s = await stat(full);
+        if (s.isDirectory()) {
+          await collectSourceImports(full, imports);
+        } else if (/\.(jsx?|tsx?|mjs|cjs|vue|svelte)$/.test(entry)) {
+          const text = await readFile(full, "utf-8");
+          // match import ... from 'pkg' or require('pkg')
+          const importMatches = text.matchAll(/(?:from|require\(|import\()\s*['"]([^'"./][^'"]*)['"]/g);
+          for (const m of importMatches) {
+            const raw = m[1];
+            // Get root package name (e.g. @radix-ui/react-slot or lodash)
+            const pkgName = raw.startsWith("@") ? raw.split("/").slice(0, 2).join("/") : raw.split("/")[0];
+            imports.add(pkgName);
+          }
         }
+      } catch {
+        // skip
       }
-    } catch {
-      // skip
-    }
+    }));
+  } catch {
+    // skip
   }
   return imports;
 }
@@ -63,20 +68,20 @@ function collectSourceImports(dir, imports = new Set()) {
  * @param {string} rootDir
  * @returns {Array<{ name: string, status: string, confidence: string }>}
  */
-export function analyzeDependencies(rootDir = process.cwd()) {
+export async function analyzeDependencies(rootDir = process.cwd()) {
   const pkgPath = join(rootDir, "package.json");
   if (!existsSync(pkgPath)) return [];
 
   let pkg = {};
   try {
-    pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
+    pkg = JSON.parse(await readFile(pkgPath, "utf-8"));
   } catch {
     return [];
   }
 
   const deps = Object.keys(pkg.dependencies || {});
   const devDeps = Object.keys(pkg.devDependencies || {});
-  const usedImports = collectSourceImports(rootDir);
+  const usedImports = await collectSourceImports(rootDir);
 
   const findings = [];
 

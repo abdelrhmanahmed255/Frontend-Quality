@@ -1,22 +1,27 @@
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync } from "node:fs";
+import { readdir, stat, readFile } from "node:fs/promises";
 import { join, relative } from "node:path";
 
-export function findSourceFiles(dir, files = []) {
+export async function findSourceFiles(dir, files = []) {
   if (!existsSync(dir)) return files;
-  const entries = readdirSync(dir);
-  for (const entry of entries) {
-    if (["node_modules", ".git", ".next", "dist", "build", "coverage"].includes(entry)) continue;
-    const full = join(dir, entry);
-    try {
-      const s = statSync(full);
-      if (s.isDirectory()) {
-        findSourceFiles(full, files);
-      } else if (/\.(jsx?|tsx?|mjs|cjs)$/.test(entry)) {
-        files.push(full);
+  try {
+    const entries = await readdir(dir);
+    await Promise.all(entries.map(async (entry) => {
+      if (["node_modules", ".git", ".next", "dist", "build", "coverage"].includes(entry)) return;
+      const full = join(dir, entry);
+      try {
+        const s = await stat(full);
+        if (s.isDirectory()) {
+          await findSourceFiles(full, files);
+        } else if (/\.(jsx?|tsx?|mjs|cjs)$/.test(entry)) {
+          files.push(full);
+        }
+      } catch {
+        // skip
       }
-    } catch {
-      // skip
-    }
+    }));
+  } catch {
+    // skip
   }
   return files;
 }
@@ -26,18 +31,18 @@ export function findSourceFiles(dir, files = []) {
  * @param {string} rootDir
  * @returns {Array<object>}
  */
-export function analyzeCodeQuality(rootDir = process.cwd(), options = {}) {
+export async function analyzeCodeQuality(rootDir = process.cwd(), options = {}) {
   const maxLines = options.maxComponentLines || 300;
-  const sourceFiles = findSourceFiles(rootDir);
+  const sourceFiles = await findSourceFiles(rootDir);
   const findings = [];
 
-  for (const file of sourceFiles) {
+  await Promise.all(sourceFiles.map(async (file) => {
     const relPath = relative(rootDir, file).replace(/\\/g, "/");
     let content = "";
     try {
-      content = readFileSync(file, "utf-8");
+      content = await readFile(file, "utf-8");
     } catch {
-      continue;
+      return;
     }
 
     const lines = content.split("\n");
@@ -116,7 +121,7 @@ export function analyzeCodeQuality(rootDir = process.cwd(), options = {}) {
         });
       }
     });
-  }
+  }));
 
   return findings;
 }

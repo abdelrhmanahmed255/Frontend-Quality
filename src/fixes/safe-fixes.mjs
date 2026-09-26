@@ -1,6 +1,8 @@
 import { readFileSync, writeFileSync } from "node:fs";
+import { blankStringsAndComments } from "../utils/safe-string-search.mjs";
 
-export function removeUnusedImports(importIssues) {
+export function removeUnusedImports(importIssues, options = {}) {
+  const isDryRun = options.dryRun === true;
   if (!importIssues || importIssues.length === 0) return 0;
   
   const filesMap = new Map();
@@ -36,19 +38,24 @@ export function removeUnusedImports(importIssues) {
       let lineText = lines[idx];
       
       for (const identifier of identifiers) {
-        const before = lineText;
+        let blankedLine = blankStringsAndComments(lineText);
         const regex = new RegExp(`\\b${identifier}\\b\\s*,?`, '');
-        lineText = lineText.replace(regex, '');
+        const match = blankedLine.match(regex);
         
-        lineText = lineText.replace(/,\s*,/g, ',');
-        lineText = lineText.replace(/{\s*,/g, '{');
-        lineText = lineText.replace(/,\s*}/g, '}');
-        lineText = lineText.replace(/{\s*}/g, '');
-        lineText = lineText.replace(/,\s*from/g, ' from');
-        lineText = lineText.replace(/import\s*,\s*{/g, 'import {');
-        lineText = lineText.replace(/import\s*,\s*/g, 'import ');
-        
-        if (before !== lineText) {
+        if (match) {
+          const start = match.index;
+          const length = match[0].length;
+          // Safely remove the exact matched bounds from the original text
+          lineText = lineText.slice(0, start) + lineText.slice(start + length);
+          
+          lineText = lineText.replace(/,\s*,/g, ',');
+          lineText = lineText.replace(/{\s*,/g, '{');
+          lineText = lineText.replace(/,\s*}/g, '}');
+          lineText = lineText.replace(/{\s*}/g, '');
+          lineText = lineText.replace(/,\s*from/g, ' from');
+          lineText = lineText.replace(/import\s*,\s*{/g, 'import {');
+          lineText = lineText.replace(/import\s*,\s*/g, 'import ');
+          
           importsRemoved++;
           changed = true;
         }
@@ -61,7 +68,7 @@ export function removeUnusedImports(importIssues) {
       }
     }
 
-    if (changed) {
+    if (changed && !isDryRun) {
       const finalLines = lines.filter(l => l !== null);
       writeFileSync(filePath, finalLines.join("\n"), "utf-8");
     }
@@ -76,9 +83,12 @@ export function removeUnusedImports(importIssues) {
  * 2. Removes debugger statements.
  * @param {Array<object>} codeSmells
  * @param {Array<object>} importIssues
+ * @param {object} options
  * @returns {{ filesModified: number, consoleLogsRemoved: number, debuggersRemoved: number, importsRemoved: number }}
  */
-export function applySafeFixes(codeSmells, importIssues = []) {
+export function applySafeFixes(codeSmells, importIssues = [], options = {}) {
+  const isDryRun = options.dryRun === true;
+  
   // Group by file
   const filesMap = new Map();
   for (const smell of codeSmells) {
@@ -105,18 +115,20 @@ export function applySafeFixes(codeSmells, importIssues = []) {
     // Filter out debugger lines and console.log lines
     const newLines = lines.filter((line) => {
       const trimmed = line.trim();
-      // Skip commented lines
+      // Skip lines that start with comments
       if (trimmed.startsWith("//") || trimmed.startsWith("/*") || trimmed.startsWith("*")) {
         return true;
       }
 
-      if (/^debugger;?$/.test(trimmed)) {
+      const blankedLine = blankStringsAndComments(trimmed);
+
+      if (/^debugger;?$/.test(blankedLine)) {
         debuggersRemoved++;
         changed = true;
         return false;
       }
 
-      if (/^console\.(log|debug|info)\([^;)]*\);?$/.test(trimmed)) {
+      if (/^console\.(log|debug|info)\([^;)]*\);?$/.test(blankedLine)) {
         consoleLogsRemoved++;
         changed = true;
         return false;
@@ -126,12 +138,14 @@ export function applySafeFixes(codeSmells, importIssues = []) {
     });
 
     if (changed) {
-      writeFileSync(filePath, newLines.join("\n"), "utf-8");
+      if (!isDryRun) {
+        writeFileSync(filePath, newLines.join("\n"), "utf-8");
+      }
       filesModified++;
     }
   }
 
-  const importsRemoved = removeUnusedImports(importIssues);
+  const importsRemoved = removeUnusedImports(importIssues, options);
 
   return { filesModified, consoleLogsRemoved, debuggersRemoved, importsRemoved };
 }

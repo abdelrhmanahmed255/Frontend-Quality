@@ -1,25 +1,30 @@
-import { existsSync, readdirSync, statSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
+import { readdir, stat, readFile } from "node:fs/promises";
 import { join, relative } from "node:path";
 
 /**
  * Traverses directories recursively to find page files.
  */
-function findFiles(dir, matchRe, fileList = []) {
+async function findFiles(dir, matchRe, fileList = []) {
   if (!existsSync(dir)) return fileList;
-  const entries = readdirSync(dir);
-  for (const entry of entries) {
-    if (["node_modules", ".git", ".next", "dist", "build"].includes(entry)) continue;
-    const fullPath = join(dir, entry);
-    try {
-      const stat = statSync(fullPath);
-      if (stat.isDirectory()) {
-        findFiles(fullPath, matchRe, fileList);
-      } else if (matchRe.test(entry)) {
-        fileList.push(fullPath);
+  try {
+    const entries = await readdir(dir);
+    await Promise.all(entries.map(async (entry) => {
+      if (["node_modules", ".git", ".next", "dist", "build"].includes(entry)) return;
+      const fullPath = join(dir, entry);
+      try {
+        const s = await stat(fullPath);
+        if (s.isDirectory()) {
+          await findFiles(fullPath, matchRe, fileList);
+        } else if (matchRe.test(entry)) {
+          fileList.push(fullPath);
+        }
+      } catch {
+        // skip unreadable
       }
-    } catch {
-      // skip unreadable
-    }
+    }));
+  } catch {
+    // skip unreadable
   }
   return fileList;
 }
@@ -30,7 +35,7 @@ function findFiles(dir, matchRe, fileList = []) {
  * @param {object} projectInfo
  * @returns {Array<string>}
  */
-export function discoverRoutes(rootDir = process.cwd(), projectInfo = {}) {
+export async function discoverRoutes(rootDir = process.cwd(), projectInfo = {}) {
   const routes = new Set(["/"]);
 
   // 1. Next.js App Router (app/ or src/app/)
@@ -41,7 +46,7 @@ export function discoverRoutes(rootDir = process.cwd(), projectInfo = {}) {
     : null;
 
   if (appDir) {
-    const pageFiles = findFiles(appDir, /^page\.(jsx?|tsx?)$/);
+    const pageFiles = await findFiles(appDir, /^page\.(jsx?|tsx?)$/);
     for (const file of pageFiles) {
       const rel = relative(appDir, file).replace(/\\/g, "/");
       let routePath = "/" + rel.replace(/\/page\.(jsx?|tsx?)$/, "").replace(/^page\.(jsx?|tsx?)$/, "");
@@ -61,7 +66,7 @@ export function discoverRoutes(rootDir = process.cwd(), projectInfo = {}) {
     : null;
 
   if (pagesDir) {
-    const pageFiles = findFiles(pagesDir, /\.(jsx?|tsx?)$/);
+    const pageFiles = await findFiles(pagesDir, /\.(jsx?|tsx?)$/);
     for (const file of pageFiles) {
       const rel = relative(pagesDir, file).replace(/\\/g, "/");
       if (rel.startsWith("_app") || rel.startsWith("_document") || rel.startsWith("api/")) continue;
@@ -73,10 +78,10 @@ export function discoverRoutes(rootDir = process.cwd(), projectInfo = {}) {
 
   // 3. React Router scan in src/
   const srcDir = existsSync(join(rootDir, "src")) ? join(rootDir, "src") : rootDir;
-  const routerFiles = findFiles(srcDir, /(App|routes?|router)\.(jsx?|tsx?)$/);
+  const routerFiles = await findFiles(srcDir, /(App|routes?|router)\.(jsx?|tsx?)$/);
   for (const file of routerFiles) {
     try {
-      const content = readFileSync(file, "utf-8");
+      const content = await readFile(file, "utf-8");
       const pathMatches = content.matchAll(/path=["']([^"']+)["']/g);
       for (const m of pathMatches) {
         if (m[1] && !m[1].includes("*")) routes.add(m[1].startsWith("/") ? m[1] : "/" + m[1]);

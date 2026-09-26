@@ -1,4 +1,5 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 const DEFAULT_CONFIG = {
@@ -8,11 +9,11 @@ const DEFAULT_CONFIG = {
   }
 };
 
-export function loadConfig(rootDir) {
+export async function loadConfig(rootDir) {
   const configPath = join(rootDir, "config", "auditor.config.json");
   if (existsSync(configPath)) {
     try {
-      const content = readFileSync(configPath, "utf-8");
+      const content = await readFile(configPath, "utf-8");
       const userConfig = JSON.parse(content);
       return {
         ...DEFAULT_CONFIG,

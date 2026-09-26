@@ -1,4 +1,5 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 /**
@@ -6,12 +7,12 @@ import { join } from "node:path";
  * @param {string} rootDir
  * @returns {object}
  */
-export function detectProject(rootDir = process.cwd()) {
+export async function detectProject(rootDir = process.cwd()) {
   const pkgPath = join(rootDir, "package.json");
   let pkg = {};
   if (existsSync(pkgPath)) {
     try {
-      pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
+      pkg = JSON.parse(await readFile(pkgPath, "utf-8"));
     } catch {
       // ignore parse error
     }

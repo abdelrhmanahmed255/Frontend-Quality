@@ -41,12 +41,34 @@ const outputArg = args.find(a => a.startsWith("--output="));
 const output = outputArg ? outputArg.split("=")[1] : null;
 
 const isVerbose = args.includes("--verbose");
+const isDryRun = args.includes("--dry-run");
+
+const strictArg = args.find(a => a.startsWith("--strict="));
+const strictMode = args.includes("--strict") ? 100 : strictArg ? parseInt(strictArg.split("=")[1], 10) : null;
 
 async function main() {
   try {
     const startTime = performance.now();
     const isFixMode = command === "fix";
-    const auditResult = await runFrontendAudit(targetDir);
+    
+    // Start spinner
+    const spinnerChars = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+    let spinIdx = 0;
+    let auditResult;
+    
+    if (process.stdout.isTTY && format !== "json") {
+      const spinInterval = setInterval(() => {
+        process.stdout.write(`\r\x1b[36m${spinnerChars[spinIdx]}\x1b[0m Auditing project ${targetArg || "."}...`);
+        spinIdx = (spinIdx + 1) % spinnerChars.length;
+      }, 80);
+
+      auditResult = await runFrontendAudit(targetDir);
+      
+      clearInterval(spinInterval);
+      process.stdout.write("\r\x1b[K"); // Clear the line
+    } else {
+      auditResult = await runFrontendAudit(targetDir);
+    }
 
     const reportsDir = resolve(targetDir, "audit-reports");
     if (!existsSync(reportsDir)) mkdirSync(reportsDir, { recursive: true });
@@ -91,16 +113,38 @@ async function main() {
 
     // 3. Handle Safe Fix Mode
     if (isFixMode) {
-      console.log("\n🛠️ Applying safe automated fixes...");
-      const fixStats = applySafeFixes(auditResult.issues);
+      if (isDryRun) {
+        console.log("\n🧪 Dry-run mode enabled. Simulating safe automated fixes...");
+      } else {
+        console.log("\n🛠️ Applying safe automated fixes...");
+      }
+      const importIssues = auditResult.issues.filter(i => i.type === "unused-import");
+      const fixStats = applySafeFixes(auditResult.issues, importIssues, { dryRun: isDryRun });
       console.log(`   ✓ Files modified:           ${fixStats.filesModified}`);
       console.log(`   ✓ Console logs removed:     ${fixStats.consoleLogsRemoved}`);
       console.log(`   ✓ Debugger breakpoints removed: ${fixStats.debuggersRemoved}`);
-      console.log("\n✅ Safe fixes applied cleanly without breaking application logic.");
+      console.log(`   ✓ Unused imports removed:   ${fixStats.importsRemoved || 0}`);
+      if (isDryRun) {
+        console.log("\n✅ Dry-run complete. No files were modified.");
+      } else {
+        console.log("\n✅ Safe fixes applied cleanly without breaking application logic.");
+      }
     }
 
     const endTime = performance.now();
     console.log(`\n⏱  Audit completed in ${((endTime - startTime) / 1000).toFixed(1)}s`);
+
+    // 4. CI/CD Strict Mode evaluation
+    if (strictMode !== null) {
+      const summary = auditResult.summary;
+      const healthScore = Math.max(0, 100 - ((summary.p0 * 20) + (summary.p1 * 10) + (summary.p2 * 5) + (summary.p3 * 2)));
+      if (healthScore < strictMode) {
+        console.error(`\n❌ CI/CD Check Failed: Health score (${healthScore}/100) is below strict threshold (${strictMode}).`);
+        process.exit(1);
+      } else {
+        console.log(`\n✅ CI/CD Check Passed: Health score (${healthScore}/100) meets strict threshold (${strictMode}).`);
+      }
+    }
   } catch (err) {
     console.error("Error during frontend audit:", err.message);
     process.exit(1);

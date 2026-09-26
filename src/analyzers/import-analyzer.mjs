@@ -1,14 +1,14 @@
-import { readFileSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 
 /**
  * Parses ES imports and checks for unreferenced identifiers in file content.
  * @param {string} filePath
  * @returns {Array<{ identifier: string, line: number, source: string }>}
  */
-export function analyzeFileImports(filePath) {
+export async function analyzeFileImports(filePath) {
   let content = "";
   try {
-    content = readFileSync(filePath, "utf-8");
+    content = await readFile(filePath, "utf-8");
   } catch {
     return [];
   }
