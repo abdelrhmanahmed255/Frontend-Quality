@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 
-function findSourceFiles(dir, files = []) {
+export function findSourceFiles(dir, files = []) {
   if (!existsSync(dir)) return files;
   const entries = readdirSync(dir);
   for (const entry of entries) {
@@ -26,7 +26,8 @@ function findSourceFiles(dir, files = []) {
  * @param {string} rootDir
  * @returns {Array<object>}
  */
-export function analyzeCodeQuality(rootDir = process.cwd()) {
+export function analyzeCodeQuality(rootDir = process.cwd(), options = {}) {
+  const maxLines = options.maxComponentLines || 300;
   const sourceFiles = findSourceFiles(rootDir);
   const findings = [];
 
@@ -41,8 +42,8 @@ export function analyzeCodeQuality(rootDir = process.cwd()) {
 
     const lines = content.split("\n");
 
-    // 1. Monster Component Check (> 300 lines)
-    if (lines.length > 300) {
+    // 1. Monster Component Check
+    if (lines.length > maxLines) {
       findings.push({
         type: "monster-component",
         severity: "P2",

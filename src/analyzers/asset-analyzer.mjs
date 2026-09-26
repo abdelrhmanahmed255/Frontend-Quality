@@ -48,7 +48,8 @@ function findAssets(dir, assetList = []) {
  * @param {string} rootDir
  * @returns {Array<object>}
  */
-export function analyzeAssets(rootDir = process.cwd()) {
+export function analyzeAssets(rootDir = process.cwd(), options = {}) {
+  const maxKB = options.maxAssetSizeKB || 500;
   const assetDirs = [
     join(rootDir, "public"),
     join(rootDir, "src", "assets"),
@@ -65,8 +66,8 @@ export function analyzeAssets(rootDir = process.cwd()) {
   for (const asset of allAssets) {
     const relPath = relative(rootDir, asset.file).replace(/\\/g, "/");
 
-    // 1. Oversized asset check (> 500 KB)
-    if (asset.sizeKB > 500) {
+    // 1. Oversized asset check
+    if (asset.sizeKB > maxKB) {
       findings.push({
         type: "oversized-asset",
         severity: asset.sizeKB > 1500 ? "P1" : "P2",
