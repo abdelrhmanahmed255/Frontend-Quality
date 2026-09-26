@@ -1,0 +1,44 @@
+{
+  "name": "frontend-quality-auditor",
+  "version": "1.0.0",
+  "description": "Professional AI Agent Skill & CLI to audit, review, and safely improve frontend projects across Responsive UI, Accessibility, UX, and Code Hygiene.",
+  "type": "module",
+  "main": "src/index.mjs",
+  "bin": {
+    "frontend-auditor": "bin/auditor.mjs",
+    "fqa": "bin/auditor.mjs"
+  },
+  "scripts": {
+    "audit": "node bin/auditor.mjs audit",
+    "suggest": "node bin/auditor.mjs suggest",
+    "fix": "node bin/auditor.mjs fix --safe",
+    "test": "node test/run-tests.mjs"
+  },
+  "keywords": [
+    "frontend",
+    "auditor",
+    "ai-agent",
+    "agent-skill",
+    "responsive-ui",
+    "accessibility",
+    "a11y",
+    "clean-code",
+    "code-quality",
+    "dead-code",
+    "nextjs",
+    "react"
+  ],
+  "author": "Abdelrhman Ahmed",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/abdelrhmanahmed255/Frontend-Quality.git"
+  },
+  "bugs": {
+    "url": "https://github.com/abdelrhmanahmed255/Frontend-Quality/issues"
+  },
+  "homepage": "https://github.com/abdelrhmanahmed255/Frontend-Quality#readme",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

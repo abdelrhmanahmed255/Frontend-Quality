@@ -1,0 +1,39 @@
+{
+  "$schema": "./schema.json",
+  "framework": "auto",
+  "viewports": [
+    320,
+    375,
+    390,
+    430,
+    768,
+    1024,
+    1280,
+    1440
+  ],
+  "audit": {
+    "responsive": true,
+    "accessibility": true,
+    "ux": true,
+    "performance": true,
+    "codeQuality": true,
+    "dependencies": true,
+    "assets": true
+  },
+  "rules": {
+    "maxAssetSizeKB": 500,
+    "maxComponentLines": 300,
+    "disallowConsole": true,
+    "disallowDebugger": true,
+    "checkUnusedImports": true,
+    "checkUnusedDeps": true
+  },
+  "fixes": {
+    "mode": "approval",
+    "safeOnly": true
+  },
+  "reporting": {
+    "format": ["terminal", "markdown"],
+    "outputDir": "./audit-reports"
+  }
+}
