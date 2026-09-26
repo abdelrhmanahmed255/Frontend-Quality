@@ -81,6 +81,8 @@ export function removeUnusedImports(importIssues, options = {}) {
  * Applies strictly safe code modifications:
  * 1. Removes console.log / console.debug lines.
  * 2. Removes debugger statements.
+ * Only lines the audit reported as `console-log` or `debugger` findings are touched, so
+ * files and lines the analyzer deliberately skips (CLI entrypoints, reporters) stay intact.
  * @param {Array<object>} codeSmells
  * @param {Array<object>} importIssues
  * @param {object} options
@@ -89,12 +91,13 @@ export function removeUnusedImports(importIssues, options = {}) {
 export function applySafeFixes(codeSmells, importIssues = [], options = {}) {
   const isDryRun = options.dryRun === true;
   
-  // Group by file
+  // Group flagged line numbers by file
   const filesMap = new Map();
   for (const smell of codeSmells) {
-    if (!smell.file) continue;
-    if (!filesMap.has(smell.file)) filesMap.set(smell.file, []);
-    filesMap.get(smell.file).push(smell);
+    if (!smell.file || !smell.line) continue;
+    if (smell.type !== "console-log" && smell.type !== "debugger") continue;
+    if (!filesMap.has(smell.file)) filesMap.set(smell.file, new Set());
+    filesMap.get(smell.file).add(smell.line);
   }
 
   let filesModified = 0;
@@ -112,15 +115,18 @@ export function applySafeFixes(codeSmells, importIssues = [], options = {}) {
     const lines = content.split("\n");
     let changed = false;
 
-    // Filter out debugger lines and console.log lines
-    const newLines = lines.filter((line) => {
+    // Filter out the flagged debugger and console.log lines
+    const newLines = lines.filter((line, idx) => {
+      if (!smells.has(idx + 1)) return true; // smells holds the flagged line numbers
+
       const trimmed = line.trim();
       // Skip lines that start with comments
       if (trimmed.startsWith("//") || trimmed.startsWith("/*") || trimmed.startsWith("*")) {
         return true;
       }
 
-      const blankedLine = blankStringsAndComments(trimmed);
+      // trimEnd() so a trailing comment (blanked to spaces) does not block the match
+      const blankedLine = blankStringsAndComments(trimmed).trimEnd();
 
       if (/^debugger;?$/.test(blankedLine)) {
         debuggersRemoved++;
