@@ -43,8 +43,11 @@ const output = outputArg ? outputArg.split("=")[1] : null;
 const isVerbose = args.includes("--verbose");
 const isDryRun = args.includes("--dry-run");
 
-const strictArg = args.find(a => a.startsWith("--strict="));
+    const strictArg = args.find(a => a.startsWith("--strict="));
 const strictMode = args.includes("--strict") ? 100 : strictArg ? parseInt(strictArg.split("=")[1], 10) : null;
+
+const urlArg = args.find(a => a.startsWith("--url="));
+const url = urlArg ? urlArg.split("=")[1] : null;
 
 async function main() {
   try {
@@ -62,12 +65,12 @@ async function main() {
         spinIdx = (spinIdx + 1) % spinnerChars.length;
       }, 80);
 
-      auditResult = await runFrontendAudit(targetDir);
+      auditResult = await runFrontendAudit(targetDir, { url });
       
       clearInterval(spinInterval);
       process.stdout.write("\r\x1b[K"); // Clear the line
     } else {
-      auditResult = await runFrontendAudit(targetDir);
+      auditResult = await runFrontendAudit(targetDir, { url });
     }
 
     const reportsDir = resolve(targetDir, "audit-reports");

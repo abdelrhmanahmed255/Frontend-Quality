@@ -5,6 +5,7 @@ import { analyzeDependencies } from "./analyzers/dependency-analyzer.mjs";
 import { analyzeAssets } from "./analyzers/asset-analyzer.mjs";
 import { analyzeCodeQuality, findSourceFiles } from "./analyzers/code-analyzer.mjs";
 import { analyzeFileImports } from "./analyzers/import-analyzer.mjs";
+import { runBrowserAudit } from "./analyzers/run-browser-audit.mjs";
 import { loadConfig } from "./config-loader.mjs";
 import { printTerminalReport } from "./reporters/terminal.mjs";
 import { generateMarkdownReport } from "./reporters/markdown.mjs";
@@ -14,18 +15,20 @@ import { applySafeFixes } from "./fixes/safe-fixes.mjs";
 /**
  * Runs a complete audit on a frontend directory.
  * @param {string} rootDir
+ * @param {object} options Options for the audit (e.g., options.url)
  * @returns {object}
  */
-export async function runFrontendAudit(rootDir = process.cwd()) {
+export async function runFrontendAudit(rootDir = process.cwd(), options = {}) {
   const config = await loadConfig(rootDir);
   const project = await detectProject(rootDir);
   const routes = await discoverRoutes(rootDir, project);
 
-  const [depIssues, assetIssues, codeIssues, sourceFiles] = await Promise.all([
+  const [depIssues, assetIssues, codeIssues, sourceFiles, browserIssues] = await Promise.all([
     analyzeDependencies(rootDir),
     analyzeAssets(rootDir, { maxAssetSizeKB: config.rules.maxAssetSizeKB }),
     analyzeCodeQuality(rootDir, { maxComponentLines: config.rules.maxComponentLines }),
-    findSourceFiles(rootDir)
+    findSourceFiles(rootDir),
+    options.url ? runBrowserAudit(options.url) : Promise.resolve([])
   ]);
 
   const importIssuesResults = await Promise.all(
@@ -43,6 +46,7 @@ export async function runFrontendAudit(rootDir = process.cwd()) {
     ...codeIssues.map(i => ({ category: "Code Quality", ...i })),
     ...depIssues.map(i => ({ category: "Dependencies", severity: "P2", ...i })),
     ...assetIssues.map(i => ({ category: "Assets", ...i })),
+    ...browserIssues,
     ...importIssues.map(i => ({
       category: "Imports",
       severity: "P2",

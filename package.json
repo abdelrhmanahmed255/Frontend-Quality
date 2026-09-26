@@ -41,5 +41,8 @@
   "homepage": "https://github.com/abdelrhmanahmed255/Frontend-Quality#readme",
   "engines": {
     "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "playwright": "^1.63.0"
   }
 }
