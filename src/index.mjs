@@ -1,8 +1,11 @@
+import { relative } from "node:path";
 import { detectProject } from "./analyzers/project-detector.mjs";
 import { discoverRoutes } from "./analyzers/route-discovery.mjs";
 import { analyzeDependencies } from "./analyzers/dependency-analyzer.mjs";
 import { analyzeAssets } from "./analyzers/asset-analyzer.mjs";
-import { analyzeCodeQuality } from "./analyzers/code-analyzer.mjs";
+import { analyzeCodeQuality, findSourceFiles } from "./analyzers/code-analyzer.mjs";
+import { analyzeFileImports } from "./analyzers/import-analyzer.mjs";
+import { loadConfig } from "./config-loader.mjs";
 import { printTerminalReport } from "./reporters/terminal.mjs";
 import { generateMarkdownReport } from "./reporters/markdown.mjs";
 import { formatJsonReport } from "./reporters/json.mjs";
@@ -14,16 +17,36 @@ import { applySafeFixes } from "./fixes/safe-fixes.mjs";
  * @returns {object}
  */
 export async function runFrontendAudit(rootDir = process.cwd()) {
+  const config = loadConfig(rootDir);
   const project = detectProject(rootDir);
   const routes = discoverRoutes(rootDir, project);
   const depIssues = analyzeDependencies(rootDir);
-  const assetIssues = analyzeAssets(rootDir);
-  const codeIssues = analyzeCodeQuality(rootDir);
+  const assetIssues = analyzeAssets(rootDir, { maxAssetSizeKB: config.rules.maxAssetSizeKB });
+  const codeIssues = analyzeCodeQuality(rootDir, { maxComponentLines: config.rules.maxComponentLines });
+
+  const sourceFiles = findSourceFiles(rootDir);
+  const importIssues = [];
+  for (const file of sourceFiles) {
+    const issues = analyzeFileImports(file);
+    if (issues && issues.length > 0) {
+      importIssues.push(...issues);
+    }
+  }
 
   const allIssues = [
     ...codeIssues.map(i => ({ category: "Code Quality", ...i })),
     ...depIssues.map(i => ({ category: "Dependencies", severity: "P2", ...i })),
     ...assetIssues.map(i => ({ category: "Assets", ...i })),
+    ...importIssues.map(i => ({
+      category: "Imports",
+      severity: "P2",
+      type: "unused-import",
+      file: relative(rootDir, i.file).replace(/\\/g, "/"),
+      line: i.line,
+      confidence: "High",
+      problem: `Unused import '${i.identifier}' from '${i.source}'.`,
+      recommendation: `Remove the unused import to keep the file clean and reduce bundle noise.`,
+    })),
   ];
 
   // Calculate severity counts
@@ -48,6 +71,9 @@ export async function runFrontendAudit(rootDir = process.cwd()) {
 
   const largeAssets = allIssues.filter(i => i.type === "oversized-asset").length;
   if (largeAssets > 0) quickWins.push(`Compress or convert ${largeAssets} oversized image(s) to WebP/AVIF.`);
+
+  const unusedImports = allIssues.filter(i => i.type === "unused-import").length;
+  if (unusedImports > 0) quickWins.push(`Remove ${unusedImports} unused import(s) across the codebase.`);
 
   return {
     project: {
