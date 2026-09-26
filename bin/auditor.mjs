@@ -6,9 +6,9 @@ import {
   runFrontendAudit,
   printTerminalReport,
   generateMarkdownReport,
-  formatJsonReport,
   applySafeFixes,
 } from "../src/index.mjs";
+import { generateApprovalGuidance } from "../src/fixes/approval-required.mjs";
 
 const args = process.argv.slice(2);
 const command = args[0] || "audit";
@@ -40,6 +40,23 @@ async function main() {
 
     // 1. Output Terminal Report
     printTerminalReport(auditResult);
+
+    if (command === "suggest") {
+      const guidance = generateApprovalGuidance(auditResult);
+      if (guidance.length > 0) {
+        console.log("\n💡 Actionable Recommendations (Requires Manual Approval/Action):");
+        guidance.forEach(item => {
+          console.log(`\n  👉 ${item.action} [Risk: ${item.risk}]`);
+          console.log(`     ${item.explanation}`);
+          if (item.command) {
+            console.log(`     Run: ${item.command}`);
+          }
+          if (item.items) {
+            item.items.forEach(i => console.log(`      - ${i}`));
+          }
+        });
+      }
+    }
 
     // 2. Generate Markdown Report file
     const reportsDir = resolve(targetDir, "audit-reports");
