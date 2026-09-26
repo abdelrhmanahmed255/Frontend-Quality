@@ -27,10 +27,16 @@ The project uses zero external dependencies. Everything is built with Node.js bu
 ## Pull Request Guidelines
 - Keep PRs focused: one feature or bugfix per PR.
 - Write descriptive commit messages.
-- Ensure all existing features still work (run the tool against itself).
+- Ensure `npm test` passes and all existing features still work (run the tool against itself).
 
 ## Testing
-Run the auditor against its own source code as a smoke test:
+The test suite uses the built-in `node:test` runner, so there is nothing extra to install:
+```bash
+npm test
+```
+Tests build throwaway projects in the system temp directory, so they never touch your working tree. Add new tests as `test/*.test.mjs` files.
+
+Also run the auditor against its own source code as a smoke test:
 ```bash
 node bin/auditor.mjs audit .
 ```
