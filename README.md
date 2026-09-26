@@ -27,6 +27,13 @@ git clone https://github.com/abdelrhmanahmed255/Frontend-Quality.git ~/.claude/s
 git clone https://github.com/abdelrhmanahmed255/Frontend-Quality.git ~/.cursor/skills/frontend-quality-auditor
 ```
 
+Install the CLI's dependencies once inside the cloned folder, so the agent can run it:
+
+```bash
+cd ~/.claude/skills/frontend-quality-auditor   # or the folder you cloned into
+npm install
+```
+
 Then just tell your agent something like:
 > "Audit my project for code quality and responsive issues"
 
@@ -59,6 +66,40 @@ frontend-auditor fix --safe
 ```
 
 The audit generates a markdown report at `audit-reports/FRONTEND_AUDIT_REPORT.md` with severity ratings, quick wins, and file-level evidence.
+
+### Options
+
+| Option | What it does |
+|---|---|
+| `--format=json` | Print the report as JSON and save it to `audit-reports/FRONTEND_AUDIT_REPORT.json` |
+| `--format=markdown` | Only write the markdown report (no terminal report) |
+| `--output=<path>` | Write the report file to a custom path |
+| `--verbose` | Show every finding in the terminal instead of the top 15 |
+| `--url=<url>` | Also run the browser audit against a running app (see below) |
+| `--dry-run` | With `fix --safe`: show what would change without touching files |
+| `--strict[=<score>]` | Exit with code 1 when the health score is below `<score>` (100 if omitted) |
+
+### Browser audit
+
+Start your dev server, then pass its URL:
+
+```bash
+npx playwright install chromium   # one-time browser download
+frontend-auditor audit . --url=http://localhost:3000
+```
+
+The page is loaded in headless Chromium at 8 widths (320px to 1440px) and checked for horizontal overflow (with the elements causing it), images without `alt`, and small touch targets on mobile.
+
+### CI
+
+`--strict` turns the health score into a pass/fail check:
+
+```bash
+# fail the job if the health score drops below 80
+npx frontend-quality-auditor audit . --strict=80
+```
+
+The health score starts at 100 and loses 20 points per P0, 10 per P1, 5 per P2, and 2 per P3 finding.
 
 ---
 
@@ -120,6 +161,8 @@ Auto-detects your setup:
 
 ```
 Frontend-Quality/
+├── .github/workflows/
+│   └── npm-publish.yml          # Publishes to npm on v* tags
 ├── bin/
 │   └── auditor.mjs              # CLI entrypoint
 ├── config/
@@ -142,16 +185,21 @@ Frontend-Quality/
 │   │   ├── dependency-analyzer.mjs
 │   │   ├── asset-analyzer.mjs
 │   │   ├── code-analyzer.mjs    # console.log, debugger, etc.
-│   │   └── browser-analyzer.mjs # DOM checks for Playwright
+│   │   ├── browser-analyzer.mjs # DOM checks that run inside the page
+│   │   └── run-browser-audit.mjs # Drives Playwright across viewports (--url)
 │   ├── reporters/
 │   │   ├── terminal.mjs
 │   │   ├── markdown.mjs
 │   │   └── json.mjs
-│   └── fixes/
-│       ├── safe-fixes.mjs       # Auto-removes console.log, debugger
-│       └── approval-required.mjs
+│   ├── fixes/
+│   │   ├── safe-fixes.mjs       # Removes console.log, debugger, unused imports
+│   │   └── approval-required.mjs
+│   └── utils/
+│       └── safe-string-search.mjs # Blanks strings/comments before matching code
 ├── assets/
 │   └── banner.jpg
+├── CHANGELOG.md
+├── CONTRIBUTING.md
 ├── SKILL.md                     # Agent skill specification
 ├── package.json
 ├── LICENSE
