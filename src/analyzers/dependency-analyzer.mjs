@@ -17,6 +17,17 @@ const ALWAYS_RETAINED_DEPS = new Set([
   "prettier",
   "sharp",
   "cross-env",
+  "@babel/core",
+  "@babel/preset-env",
+  "@babel/preset-react",
+  "@babel/preset-typescript",
+  "webpack",
+  "esbuild",
+  "rollup",
+  "@vitejs/plugin-react",
+  "@sveltejs/kit",
+  "nuxt",
+  "astro"
 ]);
 
 function collectSourceImports(dir, imports = new Set()) {
@@ -77,6 +88,7 @@ export function analyzeDependencies(rootDir = process.cwd()) {
         type: "production",
         status: "Confirmed Unused",
         confidence: "High",
+        problem: `Package '${dep}' is listed in dependencies but has no imports in the codebase.`,
         recommendation: `Package '${dep}' is declared in dependencies but never imported in source files.`,
       });
     }
@@ -90,6 +102,7 @@ export function analyzeDependencies(rootDir = process.cwd()) {
         type: "dev",
         status: "Probably Unused",
         confidence: "Medium",
+        problem: `Dev package '${devDep}' appears to have no direct imports.`,
         recommendation: `Dev dependency '${devDep}' has no direct imports. Verify if it is used in CLI or config before removing.`,
       });
     }
