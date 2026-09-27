@@ -12,7 +12,7 @@ Thanks for helping improve the Frontend Quality Auditor!
 2. Once discussed and agreed upon, open a pull request (PR).
 
 ## Development Setup
-The project uses zero external dependencies. Everything is built with Node.js built-in modules.
+The static audit uses only Node.js built-in modules. Playwright is the one runtime dependency, and it is loaded only when you run a browser audit with `--url`.
 1. Clone the repository.
 2. Run the tool locally:
    ```bash
@@ -22,7 +22,7 @@ The project uses zero external dependencies. Everything is built with Node.js bu
 ## Code Style
 - Use ES Modules (`import`/`export`).
 - Use `.mjs` extensions for all JavaScript files.
-- **Do not** add external dependencies.
+- **Do not** add new runtime dependencies without discussing it in an issue first. Code that is only needed for an optional feature should be imported lazily (see `src/analyzers/run-browser-audit.mjs`).
 
 ## Pull Request Guidelines
 - Keep PRs focused: one feature or bugfix per PR.

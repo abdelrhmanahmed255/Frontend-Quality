@@ -1,4 +1,3 @@
-import { chromium } from "playwright";
 import { DEFAULT_VIEWPORTS, inBrowserDomAudit } from "./browser-analyzer.mjs";
 
 /**
@@ -17,6 +16,23 @@ export function resolveViewports(widths) {
 export async function runBrowserAudit(url, options = {}) {
   if (!url) return [];
   const viewports = resolveViewports(options.viewports);
+
+  // Playwright is only needed for --url audits. Loading it lazily keeps the static audit
+  // working (and fast) when the package is not installed, e.g. in a freshly cloned skill folder.
+  let chromium;
+  try {
+    ({ chromium } = await import("playwright"));
+  } catch {
+    return [{
+      name: "Playwright Setup",
+      type: "browser",
+      status: "Error",
+      confidence: "High",
+      problem: "Playwright is not installed, so the browser audit (--url) was skipped.",
+      recommendation: "Run 'npm install playwright' and then 'npx playwright install chromium' to enable browser testing.",
+      severity: "P0"
+    }];
+  }
 
   const findings = [];
   // Progress goes to stderr so it never mixes with a report printed on stdout (--format=json).
