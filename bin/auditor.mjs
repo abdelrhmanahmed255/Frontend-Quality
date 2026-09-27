@@ -124,11 +124,11 @@ async function main() {
         log("\n🛠️ Applying safe automated fixes...");
       }
       const importIssues = auditResult.issues.filter(i => i.type === "unused-import");
-      const fixStats = applySafeFixes(auditResult.issues, importIssues, { dryRun: isDryRun });
-      log(`   ✓ Files modified:           ${fixStats.filesModified}`);
-      log(`   ✓ Console logs removed:     ${fixStats.consoleLogsRemoved}`);
-      log(`   ✓ Debugger breakpoints removed: ${fixStats.debuggersRemoved}`);
-      log(`   ✓ Unused imports removed:   ${fixStats.importsRemoved || 0}`);
+        const fixStats = applySafeFixes(auditResult.issues, importIssues, { dryRun: isDryRun, rootDir: targetDir });
+        log(`   ✓ Files modified:           ${fixStats.filesModified}`);
+        log(`   ✓ Console logs removed:     ${fixStats.consoleLogsRemoved}`);
+        log(`   ✓ Debugger breakpoints removed: ${fixStats.debuggersRemoved}`);
+        log(`   ✓ Unused imports removed:   ${fixStats.importsRemoved || 0}`);
       if (isDryRun) {
         log("\n✅ Dry-run complete. No files were modified.");
       } else {

@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { readdir, stat, readFile } from "node:fs/promises";
 import { join, relative } from "node:path";
+import { blankStringsAndComments } from "../utils/safe-string-search.mjs";
 
 export async function findSourceFiles(dir, files = []) {
   if (!existsSync(dir)) return files;
@@ -60,17 +61,22 @@ export async function analyzeCodeQuality(rootDir = process.cwd(), options = {}) 
       });
     }
 
+    // Same text with string literals and comments replaced by spaces, so code patterns
+    // are only matched in actual code (line numbers and columns stay aligned).
+    const codeLines = blankStringsAndComments(content).split("\n");
+
     // Line-by-line inspection
     lines.forEach((lineText, idx) => {
       const lineNum = idx + 1;
       const trimmed = lineText.trim();
+      const code = (codeLines[idx] || "").trim();
 
       // Skip commented lines
       if (trimmed.startsWith("//") || trimmed.startsWith("/*") || trimmed.startsWith("*")) return;
 
       // 2. console.log / console.debug detection (skip CLI entrypoints and reporters)
       const isCliOrReporter = relPath.startsWith("bin/") || relPath.includes("reporters/");
-      if (!isCliOrReporter && /\bconsole\.(log|debug|info)\(/.test(trimmed)) {
+      if (!isCliOrReporter && /\bconsole\.(log|debug|info)\(/.test(code)) {
         findings.push({
           type: "console-log",
           severity: "P3",
@@ -83,7 +89,7 @@ export async function analyzeCodeQuality(rootDir = process.cwd(), options = {}) 
       }
 
       // 3. debugger statements
-      if (/^\s*debugger\s*;?\s*$/.test(trimmed)) {
+      if (/^\s*debugger\s*;?\s*$/.test(code)) {
         findings.push({
           type: "debugger",
           severity: "P1",
@@ -109,7 +115,7 @@ export async function analyzeCodeQuality(rootDir = process.cwd(), options = {}) 
       }
 
       // 5. Empty Click Handlers
-      if (/onClick=\{(\s*\(\)\s*=>\s*\{\s*\}|\s*\(\)\s*=>\s*undefined\s*)\}/.test(trimmed)) {
+      if (/onClick=\{(\s*\(\)\s*=>\s*\{\s*\}|\s*\(\)\s*=>\s*undefined\s*)\}/.test(code)) {
         findings.push({
           type: "empty-handler",
           severity: "P3",

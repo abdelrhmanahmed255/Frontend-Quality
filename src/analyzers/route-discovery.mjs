@@ -69,8 +69,9 @@ export async function discoverRoutes(rootDir = process.cwd(), projectInfo = {}) 
     const pageFiles = await findFiles(pagesDir, /\.(jsx?|tsx?)$/);
     for (const file of pageFiles) {
       const rel = relative(pagesDir, file).replace(/\\/g, "/");
-      if (rel.startsWith("_app") || rel.startsWith("_document") || rel.startsWith("api/")) continue;
-      let routePath = "/" + rel.replace(/\.(jsx?|tsx?)$/, "").replace(/\/index$/, "");
+      if (/^_(app|document|error)\./.test(rel) || rel.startsWith("api/")) continue;
+      // Both pages/index.jsx and pages/blog/index.jsx map to their parent route.
+      let routePath = "/" + rel.replace(/\.(jsx?|tsx?)$/, "").replace(/(^|\/)index$/, "");
       routePath = routePath.replace(/\[([^\]]+)\]/g, ":$1");
       routes.add(routePath || "/");
     }

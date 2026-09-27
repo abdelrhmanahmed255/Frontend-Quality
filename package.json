@@ -13,7 +13,7 @@
     "audit": "node bin/auditor.mjs audit",
     "suggest": "node bin/auditor.mjs suggest",
     "fix": "node bin/auditor.mjs fix --safe",
-    "test": "node test/run-tests.mjs"
+    "test": "node --test"
   },
   "keywords": [
     "frontend",

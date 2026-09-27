@@ -1,8 +1,73 @@
 import { readFileSync, writeFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { blankStringsAndComments } from "../utils/safe-string-search.mjs";
+
+/**
+ * Returns the local binding name of an import specifier ("a as b" -> "b", "type T" -> "T").
+ */
+function localImportName(specifier) {
+  const clean = specifier.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "").trim();
+  const withoutType = clean.replace(/^type\s+/, "");
+  const parts = withoutType.split(/\s+as\s+/);
+  return parts[parts.length - 1].trim();
+}
+
+/**
+ * Drops the unused bindings from a single import statement.
+ * Aliased specifiers ("a as b") and inline type specifiers are removed as a whole so the
+ * remaining statement stays valid. When no binding is left, the statement is removed.
+ *
+ * @param {string} statement Full import statement text (may span several lines)
+ * @param {Set<string>} unusedNames Local binding names that should be removed
+ * @returns {{ text: string | null, removed: number } | null} null when the statement is not a supported import
+ */
+function rewriteImportStatement(statement, unusedNames) {
+  const match = statement.match(/^(\s*)import\s+(type\s+)?([\s\S]*?)\s*from\s*(['"][^'"]+['"])([\s\S]*)$/);
+  if (!match) return null;
+  const [, indent, typeKeyword = "", clause, source, rest] = match;
+
+  let removed = 0;
+  const kept = [];
+
+  const braceStart = clause.indexOf("{");
+  const head = braceStart === -1 ? clause : clause.slice(0, braceStart);
+  for (const part of head.split(",")) {
+    const binding = part.trim();
+    if (!binding) continue;
+    if (unusedNames.has(localImportName(binding))) removed++;
+    else kept.push(binding);
+  }
+
+  if (braceStart !== -1) {
+    const braceEnd = clause.lastIndexOf("}");
+    const inner = clause.slice(braceStart + 1, braceEnd);
+    const keptSegments = inner.split(",").filter((segment) => {
+      if (!segment.trim()) return true; // whitespace after a trailing comma
+      if (unusedNames.has(localImportName(segment))) {
+        removed++;
+        return false;
+      }
+      return true;
+    });
+    if (keptSegments.some((segment) => segment.trim())) {
+      let newInner = keptSegments.join(",");
+      const trailingSpace = inner.match(/\s*$/)[0];
+      if (!/\s$/.test(newInner) && trailingSpace) newInner += trailingSpace;
+      kept.push(`{${newInner}}`);
+    }
+  }
+
+  if (removed === 0) return { text: statement, removed };
+  if (kept.length === 0) {
+    const trailingCode = rest.replace(/^\s*;/, "").trim();
+    return { text: trailingCode ? indent + trailingCode : null, removed };
+  }
+  return { text: `${indent}import ${typeKeyword}${kept.join(", ")} from ${source}${rest}`, removed };
+}
 
 export function removeUnusedImports(importIssues, options = {}) {
   const isDryRun = options.dryRun === true;
+  const rootDir = options.rootDir || process.cwd();
   if (!importIssues || importIssues.length === 0) return 0;
   
   const filesMap = new Map();
@@ -14,7 +79,9 @@ export function removeUnusedImports(importIssues, options = {}) {
 
   let importsRemoved = 0;
 
-  for (const [filePath, issues] of filesMap.entries()) {
+  for (const [file, issues] of filesMap.entries()) {
+    // Audit findings store paths relative to the audited project, not the shell's cwd.
+    const filePath = resolve(rootDir, file);
     let content = "";
     try {
       content = readFileSync(filePath, "utf-8");
@@ -27,45 +94,29 @@ export function removeUnusedImports(importIssues, options = {}) {
     
     const issuesByLine = new Map();
     for (const issue of issues) {
-      if (!issuesByLine.has(issue.line)) issuesByLine.set(issue.line, []);
-      issuesByLine.get(issue.line).push(issue.identifier);
+      if (!issuesByLine.has(issue.line)) issuesByLine.set(issue.line, new Set());
+      issuesByLine.get(issue.line).add(localImportName(issue.identifier));
     }
-    
-    for (const [lineNum, identifiers] of issuesByLine.entries()) {
+
+    for (const [lineNum, unusedNames] of issuesByLine.entries()) {
       const idx = lineNum - 1;
-      if (idx < 0 || idx >= lines.length) continue;
-      
-      let lineText = lines[idx];
-      
-      for (const identifier of identifiers) {
-        let blankedLine = blankStringsAndComments(lineText);
-        const regex = new RegExp(`\\b${identifier}\\b\\s*,?`, '');
-        const match = blankedLine.match(regex);
-        
-        if (match) {
-          const start = match.index;
-          const length = match[0].length;
-          // Safely remove the exact matched bounds from the original text
-          lineText = lineText.slice(0, start) + lineText.slice(start + length);
-          
-          lineText = lineText.replace(/,\s*,/g, ',');
-          lineText = lineText.replace(/{\s*,/g, '{');
-          lineText = lineText.replace(/,\s*}/g, '}');
-          lineText = lineText.replace(/{\s*}/g, '');
-          lineText = lineText.replace(/,\s*from/g, ' from');
-          lineText = lineText.replace(/import\s*,\s*{/g, 'import {');
-          lineText = lineText.replace(/import\s*,\s*/g, 'import ');
-          
-          importsRemoved++;
-          changed = true;
-        }
+      if (idx < 0 || idx >= lines.length || lines[idx] === null) continue;
+
+      // An import statement can span several lines; collect it up to its `from '...'` clause.
+      let endIdx = idx;
+      let statement = lines[idx];
+      while (!/\bfrom\s*['"][^'"]*['"]/.test(statement) && endIdx + 1 < lines.length && endIdx - idx < 50) {
+        endIdx++;
+        statement += "\n" + lines[endIdx];
       }
-      
-      if (/^import\s+(from\s+)?['"]/.test(lineText.trim())) {
-        lines[idx] = null;
-      } else {
-        lines[idx] = lineText;
-      }
+
+      const result = rewriteImportStatement(statement, unusedNames);
+      if (!result || result.removed === 0) continue;
+
+      importsRemoved += result.removed;
+      changed = true;
+      lines[idx] = result.text;
+      for (let i = idx + 1; i <= endIdx; i++) lines[i] = null;
     }
 
     if (changed && !isDryRun) {
@@ -81,27 +132,34 @@ export function removeUnusedImports(importIssues, options = {}) {
  * Applies strictly safe code modifications:
  * 1. Removes console.log / console.debug lines.
  * 2. Removes debugger statements.
+ * Only lines the audit reported as `console-log` or `debugger` findings are touched, so
+ * files and lines the analyzer deliberately skips (CLI entrypoints, reporters) stay intact.
  * @param {Array<object>} codeSmells
  * @param {Array<object>} importIssues
  * @param {object} options
+ * @param {boolean} [options.dryRun] Report what would change without writing files.
+ * @param {string} [options.rootDir] Directory that relative finding paths are resolved against (defaults to cwd).
  * @returns {{ filesModified: number, consoleLogsRemoved: number, debuggersRemoved: number, importsRemoved: number }}
  */
 export function applySafeFixes(codeSmells, importIssues = [], options = {}) {
   const isDryRun = options.dryRun === true;
+  const rootDir = options.rootDir || process.cwd();
   
-  // Group by file
+  // Group flagged line numbers by file
   const filesMap = new Map();
   for (const smell of codeSmells) {
-    if (!smell.file) continue;
-    if (!filesMap.has(smell.file)) filesMap.set(smell.file, []);
-    filesMap.get(smell.file).push(smell);
+    if (!smell.file || !smell.line) continue;
+    if (smell.type !== "console-log" && smell.type !== "debugger") continue;
+    if (!filesMap.has(smell.file)) filesMap.set(smell.file, new Set());
+    filesMap.get(smell.file).add(smell.line);
   }
 
   let filesModified = 0;
   let consoleLogsRemoved = 0;
   let debuggersRemoved = 0;
 
-  for (const [filePath, smells] of filesMap.entries()) {
+  for (const [file, smells] of filesMap.entries()) {
+    const filePath = resolve(rootDir, file);
     let content = "";
     try {
       content = readFileSync(filePath, "utf-8");
@@ -112,15 +170,18 @@ export function applySafeFixes(codeSmells, importIssues = [], options = {}) {
     const lines = content.split("\n");
     let changed = false;
 
-    // Filter out debugger lines and console.log lines
-    const newLines = lines.filter((line) => {
+    // Filter out the flagged debugger and console.log lines
+    const newLines = lines.filter((line, idx) => {
+      if (!smells.has(idx + 1)) return true; // smells holds the flagged line numbers
+
       const trimmed = line.trim();
       // Skip lines that start with comments
       if (trimmed.startsWith("//") || trimmed.startsWith("/*") || trimmed.startsWith("*")) {
         return true;
       }
 
-      const blankedLine = blankStringsAndComments(trimmed);
+      // trimEnd() so a trailing comment (blanked to spaces) does not block the match
+      const blankedLine = blankStringsAndComments(trimmed).trimEnd();
 
       if (/^debugger;?$/.test(blankedLine)) {
         debuggersRemoved++;
