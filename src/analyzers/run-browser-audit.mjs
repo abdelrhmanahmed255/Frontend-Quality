@@ -39,6 +39,9 @@ export async function runBrowserAudit(url, options = {}) {
   console.error(`\n🔍 Launching Headless Browser to test ${url}...`);
 
   let browser;
+  // Page-level checks (labels, headings, alt text) do not depend on the viewport width,
+  // so they run for the first viewport only instead of repeating for all of them.
+  let pageLevelChecksDone = false;
   try {
     browser = await chromium.launch({ headless: true });
   } catch (err) {
@@ -82,8 +85,9 @@ export async function runBrowserAudit(url, options = {}) {
       await page.waitForTimeout(1000);
 
       // Execute in-browser DOM audit script
-      const pageIssues = await page.evaluate(inBrowserDomAudit);
-      
+      const pageIssues = await page.evaluate(inBrowserDomAudit, { staticChecks: !pageLevelChecksDone });
+      pageLevelChecksDone = true;
+
       for (const issue of pageIssues) {
         let problemDesc = `[${viewport.name}] ${issue.problem}`;
         if (issue.offendingElements && issue.offendingElements.length > 0) {
@@ -91,6 +95,8 @@ export async function runBrowserAudit(url, options = {}) {
         }
         
         findings.push({
+          // Keep the category so the markdown report can group browser findings.
+          category: issue.category,
           name: `Viewport: ${viewport.name}`,
           type: "browser",
           status: issue.type,
