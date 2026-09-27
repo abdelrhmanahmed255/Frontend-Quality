@@ -28,6 +28,7 @@ File types evaluated: `.png`, `.jpg`, `.jpeg`, `.gif`, `.svg`, `.webp`, `.avif`,
   - Stylesheets (`*.css`, `*.scss`, `*.module.css`)
   - Config files (`tailwind.config.*`, `next.config.*`)
 - Mark as **"Potentially Unused" (Medium Confidence)** rather than confirmed deleted, because dynamic imports (e.g. ``/images/avatar-${id}.png``) or external CDN references may exist.
+- The CLI reports these as `unreferenced-asset` (P3) when the file name appears in no code, style, markup, Markdown, JSON, or web manifest file. Conventional files that browsers request on their own (`favicon.*`, `apple-touch-icon*`, `android-chrome*`, `mstile*`) are skipped.
 
 ### C. Non-Modern Image Formats (P3)
 - Flag raster images in legacy formats (`.png`, `.jpg`) that could achieve 40–80% compression when converted to `.webp` or `.avif`.
