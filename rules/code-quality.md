@@ -16,6 +16,8 @@ This reference outlines rules for detecting frontend code smells, security overs
 ## 2. Security & Environment Leaks (P0 / P1)
 
 - **Hardcoded Secrets:** API keys, private tokens, or database connection strings hardcoded in client-side code.
+  - The CLI reports credentials with a known prefix (AWS, GitHub, Stripe live keys, Slack, OpenAI/Anthropic, PEM private keys) as **P0**, and `apiKey = "..."`-style assignments with key-like values as **P1** (medium confidence).
+  - Reports only show a masked prefix of the value. Treat any real hit as leaked: rotate the key, then move it server-side. Deleting the line does not remove it from git history.
 - **Hardcoded URLs:** Hardcoded `http://localhost:3000` or production backend URLs that should be loaded from environment variables (`process.env.NEXT_PUBLIC_*` or `import.meta.env.*`).
 - **Dangerous HTML Injection:** Unsanitized usage of `dangerouslySetInnerHTML` without DOMPurify or equivalent escaping.
 

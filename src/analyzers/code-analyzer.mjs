@@ -27,6 +27,43 @@ export async function findSourceFiles(dir, files = []) {
   return files;
 }
 
+// Credential formats with a distinctive prefix. A match is almost always a real leak.
+const SECRET_PATTERNS = [
+  { name: "AWS access key", re: /\b(?:AKIA|ASIA)[0-9A-Z]{16}\b/ },
+  { name: "GitHub token", re: /\b(?:gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{22,})\b/ },
+  { name: "Stripe secret key", re: /\b[sr]k_live_[0-9a-zA-Z]{24,}\b/ },
+  { name: "Slack token", re: /\bxox[abprs]-[0-9A-Za-z-]{10,}/ },
+  { name: "OpenAI or Anthropic API key", re: /\bsk-(?:proj|ant)-[A-Za-z0-9_-]{20,}/ },
+  { name: "private key", re: /-----BEGIN (?:RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY( BLOCK)?-----/ },
+];
+
+// `apiKey = "..."`-style assignments with a long, key-like literal value.
+const GENERIC_SECRET_RE = /\b[\w$]*(?:api[_-]?key|secret|access[_-]?token|auth[_-]?token|password)[\w$]*["']?\s*[:=]\s*["']([A-Za-z0-9_\-+/=.]{16,})["']/i;
+const PLACEHOLDER_RE = /example|your|xxxx|placeholder|changeme|dummy|sample|redacted|\*{3}/i;
+
+// Shows just enough of the value to find it without copying the secret into reports.
+function maskSecret(value) {
+  return `${value.slice(0, 4)}${"*".repeat(8)}`;
+}
+
+/**
+ * Returns a finding for a hardcoded credential on this line, or null.
+ * @param {string} lineText
+ */
+export function detectHardcodedSecret(lineText) {
+  for (const { name, re } of SECRET_PATTERNS) {
+    const match = lineText.match(re);
+    if (match && !PLACEHOLDER_RE.test(match[0])) {
+      return { severity: "P0", confidence: "High", kind: name, preview: maskSecret(match[0]) };
+    }
+  }
+  const generic = lineText.match(GENERIC_SECRET_RE);
+  if (generic && !PLACEHOLDER_RE.test(generic[1]) && /\d/.test(generic[1]) && /[A-Za-z]/.test(generic[1])) {
+    return { severity: "P1", confidence: "Medium", kind: "credential-like value", preview: maskSecret(generic[1]) };
+  }
+  return null;
+}
+
 /**
  * Scans JavaScript and TypeScript source files for code hygiene smells.
  * @param {string} rootDir
@@ -98,6 +135,20 @@ export async function analyzeCodeQuality(rootDir = process.cwd(), options = {}) 
           confidence: "High",
           problem: `Active debugger statement detected.`,
           recommendation: `Remove 'debugger' breakpoint before production deployment.`,
+        });
+      }
+
+      // Hardcoded credentials (API keys, tokens, private keys)
+      const secret = detectHardcodedSecret(lineText);
+      if (secret) {
+        findings.push({
+          type: "hardcoded-secret",
+          severity: secret.severity,
+          file: relPath,
+          line: lineNum,
+          confidence: secret.confidence,
+          problem: `Possible hardcoded ${secret.kind} (${secret.preview}).`,
+          recommendation: `Move the value to a server-side environment variable and rotate it, since anything in frontend code or git history is public.`,
         });
       }
 

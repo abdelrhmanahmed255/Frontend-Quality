@@ -69,7 +69,7 @@ The audit generates a markdown report at `audit-reports/FRONTEND_AUDIT_REPORT.md
 
 | Category | What it looks for |
 |---|---|
-| **Code Quality** | `console.log`, `debugger`, hardcoded `localhost` URLs, empty click handlers, monster components (300+ lines) |
+| **Code Quality** | `console.log`, `debugger`, hardcoded `localhost` URLs, hardcoded API keys and tokens, empty click handlers, monster components (300+ lines) |
 | **Imports** | Unused imports that are imported but never referenced in the file |
 | **Dependencies** | Packages in `package.json` that are never imported anywhere in your code |
 | **Assets** | Images over 500KB, old formats (PNG/JPG) that should be WebP/AVIF, unreferenced files |
