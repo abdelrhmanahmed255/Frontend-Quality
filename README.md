@@ -81,6 +81,22 @@ Every finding gets a severity level:
 
 ---
 
+## GitHub code scanning
+
+`--format=sarif` writes `audit-reports/FRONTEND_AUDIT_REPORT.sarif`, which GitHub can show as code scanning alerts and inline annotations on pull requests:
+
+```yaml
+- run: npx frontend-quality-auditor audit . --format=sarif
+- uses: github/codeql-action/upload-sarif@v3
+  with:
+    sarif_file: audit-reports/FRONTEND_AUDIT_REPORT.sarif
+    category: frontend-quality
+```
+
+The job needs `permissions: security-events: write` for the upload. P0/P1 findings become errors, P2 warnings, and P3 notes. Browser findings from `--url` have no source file, so they are only in the other report formats.
+
+---
+
 ## Config
 
 Drop a `config/auditor.config.json` in your project root to customize thresholds:

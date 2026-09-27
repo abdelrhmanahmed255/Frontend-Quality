@@ -7,6 +7,7 @@ import {
   printTerminalReport,
   generateMarkdownReport,
   formatJsonReport,
+  formatSarifReport,
   applySafeFixes,
 } from "../src/index.mjs";
 import { generateApprovalGuidance } from "../src/fixes/approval-required.mjs";
@@ -42,7 +43,7 @@ Usage:
   frontend-auditor fix [targetDir] --safe Automatically apply non-breaking safe fixes
 
 Options:
-  --format=markdown|json|terminal         Output format (default: terminal + markdown file)
+  --format=markdown|json|sarif|terminal   Output format (default: terminal + markdown file)
   --output=<path>                         Custom path for generated report
   --verbose                               Show every finding in the terminal report
   --url=<url>                             Also run the Playwright browser audit against a running app
@@ -108,6 +109,11 @@ async function main() {
       const jsonPath = output ? resolve(process.cwd(), output) : resolve(reportsDir, "FRONTEND_AUDIT_REPORT.json");
       writeFileSync(jsonPath, jsonReport, "utf-8");
       console.log(jsonReport);
+    } else if (format === "sarif") {
+      const sarifReport = formatSarifReport(auditResult);
+      const sarifPath = output ? resolve(process.cwd(), output) : resolve(reportsDir, "FRONTEND_AUDIT_REPORT.sarif");
+      writeFileSync(sarifPath, sarifReport, "utf-8");
+      console.log(`📄 SARIF report saved to: ${sarifPath}`);
     } else if (format === "markdown") {
       const mdReport = generateMarkdownReport(auditResult);
       const mdPath = output ? resolve(process.cwd(), output) : resolve(reportsDir, "FRONTEND_AUDIT_REPORT.md");

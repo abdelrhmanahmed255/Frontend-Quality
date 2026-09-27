@@ -10,6 +10,7 @@ import { loadConfig } from "./config-loader.mjs";
 import { printTerminalReport } from "./reporters/terminal.mjs";
 import { generateMarkdownReport } from "./reporters/markdown.mjs";
 import { formatJsonReport } from "./reporters/json.mjs";
+import { formatSarifReport } from "./reporters/sarif.mjs";
 import { applySafeFixes } from "./fixes/safe-fixes.mjs";
 
 /**
@@ -117,5 +118,6 @@ export {
   printTerminalReport,
   generateMarkdownReport,
   formatJsonReport,
+  formatSarifReport,
   applySafeFixes,
 };
