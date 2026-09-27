@@ -1,8 +1,10 @@
 import { readFileSync, writeFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { blankStringsAndComments } from "../utils/safe-string-search.mjs";
 
 export function removeUnusedImports(importIssues, options = {}) {
   const isDryRun = options.dryRun === true;
+  const rootDir = options.rootDir || process.cwd();
   if (!importIssues || importIssues.length === 0) return 0;
   
   const filesMap = new Map();
@@ -14,7 +16,9 @@ export function removeUnusedImports(importIssues, options = {}) {
 
   let importsRemoved = 0;
 
-  for (const [filePath, issues] of filesMap.entries()) {
+  for (const [file, issues] of filesMap.entries()) {
+    // Audit findings store paths relative to the audited project, not the shell's cwd.
+    const filePath = resolve(rootDir, file);
     let content = "";
     try {
       content = readFileSync(filePath, "utf-8");
@@ -84,10 +88,13 @@ export function removeUnusedImports(importIssues, options = {}) {
  * @param {Array<object>} codeSmells
  * @param {Array<object>} importIssues
  * @param {object} options
+ * @param {boolean} [options.dryRun] Report what would change without writing files.
+ * @param {string} [options.rootDir] Directory that relative finding paths are resolved against (defaults to cwd).
  * @returns {{ filesModified: number, consoleLogsRemoved: number, debuggersRemoved: number, importsRemoved: number }}
  */
 export function applySafeFixes(codeSmells, importIssues = [], options = {}) {
   const isDryRun = options.dryRun === true;
+  const rootDir = options.rootDir || process.cwd();
   
   // Group by file
   const filesMap = new Map();
@@ -101,7 +108,8 @@ export function applySafeFixes(codeSmells, importIssues = [], options = {}) {
   let consoleLogsRemoved = 0;
   let debuggersRemoved = 0;
 
-  for (const [filePath, smells] of filesMap.entries()) {
+  for (const [file, smells] of filesMap.entries()) {
+    const filePath = resolve(rootDir, file);
     let content = "";
     try {
       content = readFileSync(filePath, "utf-8");

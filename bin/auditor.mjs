@@ -122,7 +122,7 @@ async function main() {
         console.log("\n🛠️ Applying safe automated fixes...");
       }
       const importIssues = auditResult.issues.filter(i => i.type === "unused-import");
-      const fixStats = applySafeFixes(auditResult.issues, importIssues, { dryRun: isDryRun });
+      const fixStats = applySafeFixes(auditResult.issues, importIssues, { dryRun: isDryRun, rootDir: targetDir });
       console.log(`   ✓ Files modified:           ${fixStats.filesModified}`);
       console.log(`   ✓ Console logs removed:     ${fixStats.consoleLogsRemoved}`);
       console.log(`   ✓ Debugger breakpoints removed: ${fixStats.debuggersRemoved}`);
