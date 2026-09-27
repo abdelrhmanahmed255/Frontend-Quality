@@ -14,7 +14,22 @@ Built this because I got tired of shipping code with leftover `console.log` stat
 
 ### As an AI Agent Skill
 
-Clone it into your agent's skills folder:
+**Option 1: Using the MCP Server (Recommended for Claude Desktop, Cursor, etc.)**
+You can plug this tool directly into any AI that supports the Model Context Protocol (MCP) without cloning anything! Just add this to your AI's MCP settings file:
+
+```json
+{
+  "mcpServers": {
+    "frontend-auditor": {
+      "command": "npx",
+      "args": ["-y", "frontend-quality-auditor", "mcp"]
+    }
+  }
+}
+```
+
+**Option 2: Manual Clone**
+If your agent doesn't support MCP yet, clone it into your agent's skills folder:
 
 ```bash
 # Gemini / Antigravity
@@ -27,7 +42,7 @@ git clone https://github.com/abdelrhmanahmed255/Frontend-Quality.git ~/.claude/s
 git clone https://github.com/abdelrhmanahmed255/Frontend-Quality.git ~/.cursor/skills/frontend-quality-auditor
 ```
 
-Install the CLI's dependencies once inside the cloned folder, so the agent can run it:
+Install the CLI's dependencies once inside the cloned folder:
 
 ```bash
 cd ~/.claude/skills/frontend-quality-auditor   # or the folder you cloned into
