@@ -7,7 +7,8 @@
   "bin": {
     "frontend-quality-auditor": "bin/auditor.mjs",
     "frontend-auditor": "bin/auditor.mjs",
-    "fqa": "bin/auditor.mjs"
+    "fqa": "bin/auditor.mjs",
+    "frontend-auditor-mcp": "bin/mcp.mjs"
   },
   "scripts": {
     "audit": "node bin/auditor.mjs audit",
@@ -27,7 +28,11 @@
     "code-quality",
     "dead-code",
     "nextjs",
-    "react"
+    "react",
+    "mcp",
+    "mcp-server",
+    "claude",
+    "cursor"
   ],
   "author": "Abdelrhman Ahmed",
   "license": "MIT",
