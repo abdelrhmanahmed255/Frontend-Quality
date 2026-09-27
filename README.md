@@ -2,6 +2,10 @@
   <img src="assets/banner.jpg" alt="Frontend Quality Auditor" width="100%" />
 </p>
 
+<p align="center">
+  <img src="assets/logo.jpg" alt="Frontend Quality Auditor Logo" width="150" />
+</p>
+
 # Frontend Quality Auditor
 
 A CLI tool and AI agent skill that audits your frontend projects — finds dead code, unused deps, accessibility issues, and responsive layout bugs. Then it generates a clear report and can auto-fix the safe stuff.
