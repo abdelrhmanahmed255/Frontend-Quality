@@ -5,7 +5,8 @@ export async function runBrowserAudit(url) {
   if (!url) return [];
 
   const findings = [];
-  console.log(`\n🔍 Launching Headless Browser to test ${url}...`);
+  // Progress goes to stderr so it never mixes with a report printed on stdout (--format=json).
+  console.error(`\n🔍 Launching Headless Browser to test ${url}...`);
 
   let browser;
   try {

@@ -53,6 +53,8 @@ async function main() {
   try {
     const startTime = performance.now();
     const isFixMode = command === "fix";
+    // With --format=json, stdout carries only the JSON report; status messages go to stderr.
+    const log = format === "json" ? console.error : console.log;
     
     // Start spinner
     const spinnerChars = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
@@ -117,25 +119,25 @@ async function main() {
     // 3. Handle Safe Fix Mode
     if (isFixMode) {
       if (isDryRun) {
-        console.log("\n🧪 Dry-run mode enabled. Simulating safe automated fixes...");
+        log("\n🧪 Dry-run mode enabled. Simulating safe automated fixes...");
       } else {
-        console.log("\n🛠️ Applying safe automated fixes...");
+        log("\n🛠️ Applying safe automated fixes...");
       }
       const importIssues = auditResult.issues.filter(i => i.type === "unused-import");
-      const fixStats = applySafeFixes(auditResult.issues, importIssues, { dryRun: isDryRun, rootDir: targetDir });
-      console.log(`   ✓ Files modified:           ${fixStats.filesModified}`);
-      console.log(`   ✓ Console logs removed:     ${fixStats.consoleLogsRemoved}`);
-      console.log(`   ✓ Debugger breakpoints removed: ${fixStats.debuggersRemoved}`);
-      console.log(`   ✓ Unused imports removed:   ${fixStats.importsRemoved || 0}`);
+        const fixStats = applySafeFixes(auditResult.issues, importIssues, { dryRun: isDryRun, rootDir: targetDir });
+        log(`   ✓ Files modified:           ${fixStats.filesModified}`);
+        log(`   ✓ Console logs removed:     ${fixStats.consoleLogsRemoved}`);
+        log(`   ✓ Debugger breakpoints removed: ${fixStats.debuggersRemoved}`);
+        log(`   ✓ Unused imports removed:   ${fixStats.importsRemoved || 0}`);
       if (isDryRun) {
-        console.log("\n✅ Dry-run complete. No files were modified.");
+        log("\n✅ Dry-run complete. No files were modified.");
       } else {
-        console.log("\n✅ Safe fixes applied cleanly without breaking application logic.");
+        log("\n✅ Safe fixes applied cleanly without breaking application logic.");
       }
     }
 
     const endTime = performance.now();
-    console.log(`\n⏱  Audit completed in ${((endTime - startTime) / 1000).toFixed(1)}s`);
+    log(`\n⏱  Audit completed in ${((endTime - startTime) / 1000).toFixed(1)}s`);
 
     // 4. CI/CD Strict Mode evaluation
     if (strictMode !== null) {
@@ -145,7 +147,7 @@ async function main() {
         console.error(`\n❌ CI/CD Check Failed: Health score (${healthScore}/100) is below strict threshold (${strictMode}).`);
         process.exit(1);
       } else {
-        console.log(`\n✅ CI/CD Check Passed: Health score (${healthScore}/100) meets strict threshold (${strictMode}).`);
+        log(`\n✅ CI/CD Check Passed: Health score (${healthScore}/100) meets strict threshold (${strictMode}).`);
       }
     }
   } catch (err) {
