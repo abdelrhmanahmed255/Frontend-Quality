@@ -10,6 +10,7 @@ import {
   applySafeFixes,
 } from "../src/index.mjs";
 import { generateApprovalGuidance } from "../src/fixes/approval-required.mjs";
+import { loadConfig } from "../src/config-loader.mjs";
 
 const args = process.argv.slice(2);
 const COMMANDS = ["audit", "suggest", "fix"];
@@ -98,7 +99,8 @@ async function main() {
       auditResult = await runFrontendAudit(targetDir, { url });
     }
 
-    const reportsDir = resolve(targetDir, "audit-reports");
+    const { reporting } = await loadConfig(targetDir);
+    const reportsDir = resolve(targetDir, reporting.outputDir || "audit-reports");
     if (!existsSync(reportsDir)) mkdirSync(reportsDir, { recursive: true });
 
     if (format === "json") {
