@@ -47,6 +47,32 @@ npx frontend-quality-auditor audit .
 npm install -g frontend-quality-auditor
 ```
 
+### As a Project Dependency (Recommended)
+
+To run audits in CI or as a regular check before committing:
+
+```bash
+npm install --save-dev frontend-quality-auditor
+```
+
+Then add scripts to your `package.json`:
+
+```json
+{
+  "scripts": {
+    "audit": "frontend-quality-auditor audit .",
+    "audit:fix": "frontend-quality-auditor fix --safe",
+    "audit:ci": "frontend-quality-auditor audit . --strict --format=sarif"
+  }
+}
+```
+
+Run them using:
+```bash
+npm run audit
+npm run audit:fix
+```
+
 ---
 
 ## Usage
