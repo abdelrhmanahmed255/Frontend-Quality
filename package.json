@@ -1,6 +1,6 @@
 {
   "name": "frontend-quality-auditor",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "Professional AI Agent Skill & CLI to audit, review, and safely improve frontend projects across Responsive UI, Accessibility, UX, and Code Hygiene.",
   "type": "module",
   "main": "src/index.mjs",
